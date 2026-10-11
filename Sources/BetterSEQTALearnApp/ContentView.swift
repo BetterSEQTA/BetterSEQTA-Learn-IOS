@@ -42,7 +42,7 @@ public struct ContentView: View {
 
     private var unauthenticatedFlow: some View {
         ZStack {
-            LearnTheme.Colors.background
+            LearnScreenBackground()
                 .ignoresSafeArea()
             if showOnboarding {
                 LearnOnboardingStubView {

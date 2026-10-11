@@ -4,35 +4,38 @@ import SwiftUI
 
 public struct LearnAssessmentDetailView: View {
     @State private var viewModel: LearnAssessmentDetailViewModel
-    @Environment(\.dismiss) private var dismiss
-
     public init(viewModel: LearnAssessmentDetailViewModel) {
         _viewModel = State(initialValue: viewModel)
     }
 
     public var body: some View {
-        ScrollView {
-            Group {
-                if viewModel.isLoading {
-                    LearnLoadingState()
-                } else if let error = viewModel.errorMessage {
-                    LearnErrorBanner(message: error) {
-                        Task { await viewModel.load() }
-                    }
-                } else if let detail = viewModel.detail {
-                    detailContent(detail)
+        VStack(spacing: 0) {
+            LearnInlineNavBar(title: "Assessment") {
+                if let detail = viewModel.detail {
+                    LearnCopyMorphIconButton(
+                        text: assessmentCopyText(detail),
+                        accessibilityLabel: "Copy assessment details"
+                    )
                 }
             }
-            .padding(16)
-        }
-        .background(LearnTheme.Colors.background)
-        .navigationTitle("Assessment")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Back") { dismiss() }
+            ScrollView {
+                Group {
+                    if viewModel.isLoading {
+                        LearnLoadingState(preset: .detailBody)
+                    } else if let error = viewModel.errorMessage {
+                        LearnErrorBanner(message: error) {
+                            Task { await viewModel.load() }
+                        }
+                    } else if let detail = viewModel.detail {
+                        detailContent(detail)
+                    }
+                }
+                .padding(16)
             }
         }
+        .background { LearnScreenBackground() }
+        .learnShellNavigationDepth(1)
+        .toolbar(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
     }
 
@@ -149,5 +152,14 @@ public struct LearnAssessmentDetailView: View {
                 }
             }
         }
+    }
+
+    private func assessmentCopyText(_ detail: AssessmentDetail) -> String {
+        var lines = [detail.title, detail.subjectTitle]
+        if let due = detail.dueDate { lines.append("Due: \(due)") }
+        lines.append("Status: \(detail.displayStatus.rawValue)")
+        if let grade = detail.overallGrade { lines.append("Grade: \(grade)") }
+        if let percent = detail.overallPercentage { lines.append("Mark: \(percent)%") }
+        return lines.joined(separator: "\n")
     }
 }

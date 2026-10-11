@@ -25,7 +25,7 @@ public struct LearnNotificationsSettingsView: View {
                         }
                     }
                 }
-                .listRowBackground(LearnTheme.Colors.card)
+                .listRowBackground(LearnGlassListRowBackground())
             }
 
             Section("Notifications & sync") {
@@ -89,11 +89,14 @@ public struct LearnNotificationsSettingsView: View {
                     .font(.caption2)
                     .foregroundStyle(LearnTheme.Colors.secondaryText)
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
         }
-        .scrollContentBackground(.hidden)
-        .background(LearnTheme.Colors.background)
-        .navigationTitle("Notifications")
+        .learnInsetSettingsList()
+        .learnShellNavigationDepth(1)
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top) {
+            LearnInlineNavBar(title: "Notifications")
+        }
         .task { await viewModel.refreshAuthorizationStatus() }
     }
 

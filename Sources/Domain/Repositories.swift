@@ -58,4 +58,6 @@ public protocol CalendarSyncRepository: AnyObject {
     func savePreferences(_ preferences: CalendarSyncPreferences)
     func availableCalendars() -> [CalendarSyncCalendarOption]
     func syncNow() async -> AppResult<CalendarSyncSummary>
+    /// Removes events previously created by BetterSEQTA Learn calendar sync.
+    func removeSyncedEvents() async -> AppResult<Int>
 }

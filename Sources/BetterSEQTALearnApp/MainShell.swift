@@ -30,11 +30,14 @@ struct MainShell: View {
     @State private var calendarSyncViewModel: LearnCalendarSyncViewModel
 
     @State private var selectedTab: ShellTab = .home
+    @State private var tabNavigationForward = true
     @State private var showCalendarSync = false
     @State private var overlay: ShellOverlay?
     @State private var isDrawerOpen = false
     @State private var showLogoutConfirm = false
-    @State private var launchOverlayDismissed = false
+    @State private var showMessagesCompose = false
+    @State private var showTimetableDatePicker = false
+    @State private var shellNavigationDepth = 0
     @State private var inboxPollTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -70,29 +73,12 @@ struct MainShell: View {
         )
     }
 
-    private var homeReady: Bool {
-        dependencies.homeLaunchGate.isHomeReady
-    }
-
     private var onOverlay: Bool {
         overlay != nil
     }
 
     var body: some View {
-        ZStack {
-            if homeReady {
-                drawerShell
-            }
-
-            if !launchOverlayDismissed {
-                AppLaunchLoadingOverlay(
-                    visible: !homeReady,
-                    versionName: versionName,
-                    onDismissed: { launchOverlayDismissed = true }
-                )
-                .zIndex(20)
-            }
-        }
+        drawerShell
         .onAppear {
             shellViewModel.refreshUnreadMessages()
             restartInboxPollingIfNeeded()
@@ -148,6 +134,20 @@ struct MainShell: View {
                 LearnCalendarSyncView(viewModel: calendarSyncViewModel)
             }
         }
+        .sheet(isPresented: $showTimetableDatePicker) {
+            LearnGraphicalDateSheet(
+                date: timetableViewModel.selectedDate,
+                onConfirm: { date in
+                    timetableViewModel.selectDate(date)
+                    showTimetableDatePicker = false
+                },
+                onCancel: { showTimetableDatePicker = false }
+            )
+        }
+    }
+
+    private var drawerWidth: CGFloat {
+        min(320, UIScreen.main.bounds.width * 0.88)
     }
 
     private var drawerShell: some View {
@@ -156,23 +156,35 @@ struct MainShell: View {
                 .disabled(isDrawerOpen)
                 .overlay {
                     if isDrawerOpen {
-                        Color.black.opacity(0.45)
+                        Color.black.opacity(0.35)
                             .ignoresSafeArea()
                             .onTapGesture { closeDrawer() }
                     }
                 }
 
             if isDrawerOpen {
-                drawerContent
-                    .frame(width: min(320, UIScreen.main.bounds.width * 0.86))
-                    .background(LearnTheme.Colors.background)
-                    .shadow(color: .black.opacity(0.35), radius: 12, x: 4, y: 0)
-                    .transition(.move(edge: .leading))
-                    .zIndex(2)
-                    .accessibilityAddTraits(.isModal)
+                LearnShellDrawer(
+                    displayName: homeViewModel.uiState.displayName,
+                    versionName: versionName,
+                    selectedTab: selectedTab,
+                    selectedOverlay: overlay,
+                    unreadMessages: shellViewModel.unreadMessageCount,
+                    onSelectTab: { navigateToTab($0) },
+                    onSelectOverlay: { navigateToOverlay($0) },
+                    onLogout: { showLogoutConfirm = true }
+                )
+                .frame(width: drawerWidth)
+                .overlay(alignment: .trailing) {
+                    Rectangle()
+                        .fill(LearnTheme.Colors.separator)
+                        .frame(width: 1 / UIScreen.main.scale)
+                }
+                .transition(.move(edge: .leading))
+                .zIndex(2)
+                .accessibilityAddTraits(.isModal)
             }
         }
-        .animation(LearnMotion.spatialStandardDefault, value: isDrawerOpen)
+        .animation(LearnMotion.drawerSpring, value: isDrawerOpen)
     }
 
     private func restartInboxPollingIfNeeded() {
@@ -190,49 +202,121 @@ struct MainShell: View {
 
     private var mainScaffold: some View {
         VStack(spacing: 0) {
-            topBar
+            if shellNavigationDepth == 0 {
+                topBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             tabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             if !onOverlay {
                 bottomBar
             }
         }
-        .background(LearnTheme.Colors.background)
+        .background { LearnScreenBackground() }
+        .animation(LearnMotion.spatialStandardDefault, value: shellNavigationDepth)
+        .onPreferenceChange(LearnShellChromeDepthKey.self) { shellNavigationDepth = $0 }
     }
 
     @ViewBuilder
     private var topBar: some View {
-        HStack {
+        Group {
             if onOverlay {
-                Button(action: { overlay = nil }) {
-                    Image(systemName: "chevron.left")
-                        .font(.body.weight(.semibold))
-                }
-                Text(overlay?.title ?? "")
-                    .font(.headline)
+                LearnShellTopBar(
+                    leading: .back {
+                        withAnimation(LearnMotion.spatialStandardDefault) {
+                            overlay = nil
+                        }
+                    },
+                    title: overlay?.title ?? ""
+                )
+            } else if selectedTab == .messages {
+                LearnShellTopBar(
+                    leading: .menu {
+                        LearnHaptics.lightImpact()
+                        isDrawerOpen = true
+                    },
+                    title: ShellTab.messages.title,
+                    trailing: {
+                        Button {
+                            LearnHaptics.lightImpact()
+                            showMessagesCompose = true
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                                .font(.body.weight(.semibold))
+                                .frame(width: 32, height: 32)
+                        }
+                        .learnPressFeedback(scale: 0.92)
+                        .accessibilityLabel("Compose message")
+                    }
+                )
+            } else if selectedTab == .home {
+                LearnShellTopBar(
+                    leading: .menu {
+                        LearnHaptics.lightImpact()
+                        isDrawerOpen = true
+                    },
+                    center: {
+                        LearnShellHeaderDate(date: homeViewModel.uiState.selectedDate)
+                    },
+                    trailing: {
+                        settingsToolbarButton
+                    }
+                )
+            } else if selectedTab == .timetable {
+                LearnShellTopBar(
+                    leading: .menu {
+                        LearnHaptics.lightImpact()
+                        isDrawerOpen = true
+                    },
+                    center: {
+                        LearnShellHeaderDate(date: timetableViewModel.selectedDate)
+                    },
+                    trailing: {
+                        HStack(spacing: 2) {
+                            if !timetableViewModel.isSelectedDateToday {
+                                Button("Today") {
+                                    LearnHaptics.selection()
+                                    timetableViewModel.goToToday()
+                                }
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(LearnTheme.Colors.accent)
+                                .learnPressFeedback(scale: 0.96)
+                            }
+                            Button {
+                                LearnHaptics.lightImpact()
+                                showTimetableDatePicker = true
+                            } label: {
+                                Image(systemName: "calendar")
+                                    .font(.body.weight(.medium))
+                                    .frame(width: 32, height: 32)
+                            }
+                            .learnPressFeedback(scale: 0.92)
+                            .accessibilityLabel("Pick date")
+                            settingsToolbarButton
+                        }
+                    }
+                )
             } else {
-                Button(action: { isDrawerOpen = true }) {
-                    Image(systemName: "line.3.horizontal")
-                }
-                .accessibilityLabel("Open menu")
-                Text(selectedTab.title)
-                    .font(.headline)
-                Spacer()
-                Button(action: { navigateToOverlay(.settings) }) {
-                    Image(systemName: "gearshape")
-                }
+                LearnShellTopBar(
+                    leading: .menu {
+                        LearnHaptics.lightImpact()
+                        isDrawerOpen = true
+                    },
+                    title: selectedTab.title,
+                    trailing: {
+                        settingsToolbarButton
+                    }
+                )
             }
         }
         .foregroundStyle(LearnTheme.Colors.primaryText)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(LearnTheme.Colors.card.opacity(0.5))
     }
 
     @ViewBuilder
     private var tabContent: some View {
         if let overlay {
             overlayView(overlay)
+                .transition(LearnMotion.overlaySlide(richAnimations: !reduceMotion))
         } else {
             Group {
                 switch selectedTab {
@@ -248,12 +332,20 @@ struct MainShell: View {
                 case .tasks:
                     LearnAssessmentsView(viewModel: assessmentsViewModel)
                 case .messages:
-                    LearnMessagesView(viewModel: messagesViewModel)
+                    LearnMessagesView(
+                        viewModel: messagesViewModel,
+                        showCompose: $showMessagesCompose
+                    )
                 }
             }
             .id(selectedTab)
-            .transition(.opacity.combined(with: .move(edge: .trailing)))
-            .animation(LearnMotion.screenFadeIn, value: selectedTab)
+            .transition(
+                LearnMotion.tabSlide(
+                    forward: tabNavigationForward,
+                    richAnimations: !reduceMotion
+                )
+            )
+            .animation(LearnMotion.spatialStandardDefault, value: selectedTab)
         }
     }
 
@@ -276,126 +368,37 @@ struct MainShell: View {
     }
 
     private var bottomBar: some View {
-        HStack {
-            ForEach(ShellTab.allCases, id: \.self) { tab in
-                Button {
-                    selectedTab = tab
-                    overlay = nil
-                } label: {
-                    VStack(spacing: 4) {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: tab.systemImage)
-                                .font(.system(size: 20))
-                            if tab == .messages, shellViewModel.unreadMessageCount > 0 {
-                                Text("\(min(shellViewModel.unreadMessageCount, 99))")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .padding(4)
-                                    .background(Color.red, in: Circle())
-                                    .offset(x: 8, y: -8)
-                            }
-                        }
-                        Text(tab.title)
-                            .font(.caption2)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .foregroundStyle(
-                        selectedTab == tab && overlay == nil
-                            ? Color.accentColor
-                            : LearnTheme.Colors.secondaryText
-                    )
+        LearnShellBottomBar(
+            selectedTab: Binding(
+                get: { ShellTab.allCases.firstIndex(of: selectedTab) ?? 0 },
+                set: { index in
+                    let tab = ShellTab.allCases[index]
+                    selectTab(tab)
                 }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        .background(LearnTheme.Colors.card.opacity(0.6))
-    }
-
-    private var drawerContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("BetterSEQTA Learn")
-                .font(.title2.weight(.bold))
-                .foregroundStyle(LearnTheme.Colors.primaryText)
-                .padding(.horizontal, 28)
-                .padding(.vertical, 20)
-
-            drawerSectionLabel("Main")
-            ForEach(ShellTab.allCases, id: \.self) { tab in
-                drawerItem(
+            ),
+            tabs: ShellTab.allCases.map { tab in
+                (
                     title: tab.title,
                     systemImage: tab.systemImage,
-                    selected: selectedTab == tab && overlay == nil
-                ) {
-                    navigateToTab(tab)
-                }
+                    badge: tab == .messages ? shellViewModel.unreadMessageCount : nil
+                )
+            },
+            onSelect: { index in
+                selectTab(ShellTab.allCases[index])
             }
-
-            Divider().padding(.vertical, 12)
-
-            drawerSectionLabel("More")
-            drawerItem(title: "Welcome Portals", systemImage: "globe", selected: overlay == .portals) {
-                navigateToOverlay(.portals)
-            }
-            drawerItem(title: "Notices", systemImage: "megaphone", selected: overlay == .notices) {
-                navigateToOverlay(.notices)
-            }
-            drawerItem(title: "Settings", systemImage: "gearshape", selected: overlay == .settings) {
-                navigateToOverlay(.settings)
-            }
-
-            Spacer()
-
-            Divider()
-            Button(role: .destructive) {
-                closeDrawer()
-                showLogoutConfirm = true
-            } label: {
-                Label("Log out", systemImage: "rectangle.portrait.and.arrow.right")
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 16)
-            }
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
+        )
     }
 
-    private func drawerSectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(LearnTheme.Colors.secondaryText)
-            .padding(.horizontal, 28)
-            .padding(.vertical, 4)
-    }
-
-    private func drawerItem(
-        title: String,
-        systemImage: String,
-        selected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: systemImage)
-                    .frame(width: 24)
-                    .foregroundStyle(selected ? Color.accentColor : LearnTheme.Colors.primaryText)
-                Text(title)
-                    .fontWeight(selected ? .semibold : .regular)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(selected ? LearnTheme.Colors.card : Color.clear, in: RoundedRectangle(cornerRadius: 12))
-            .overlay {
-                if selected {
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
-                }
-            }
-            .padding(.horizontal, 12)
+    private func selectTab(_ tab: ShellTab) {
+        let tabs = ShellTab.allCases
+        let newIndex = tabs.firstIndex(of: tab) ?? 0
+        let oldIndex = tabs.firstIndex(of: selectedTab) ?? 0
+        tabNavigationForward = newIndex >= oldIndex
+        withAnimation(LearnMotion.spatialStandardDefault) {
+            selectedTab = tab
+            overlay = nil
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(selected ? Color.accentColor : LearnTheme.Colors.primaryText)
+        closeDrawer()
     }
 
     private var homeNavigation: HomeNavigationCallbacks {
@@ -415,18 +418,28 @@ struct MainShell: View {
         )
     }
 
+    private var settingsToolbarButton: some View {
+        Button(action: { navigateToOverlay(.settings) }) {
+            Image(systemName: "gearshape")
+                .font(.body.weight(.medium))
+                .frame(width: 32, height: 32)
+        }
+        .learnPressFeedback(scale: 0.92)
+        .accessibilityLabel("Settings")
+    }
+
     private func closeDrawer() {
         isDrawerOpen = false
     }
 
     private func navigateToTab(_ tab: ShellTab) {
-        selectedTab = tab
-        overlay = nil
-        closeDrawer()
+        selectTab(tab)
     }
 
     private func navigateToOverlay(_ route: ShellOverlay) {
-        overlay = route
+        withAnimation(LearnMotion.spatialStandardDefault) {
+            overlay = route
+        }
         closeDrawer()
     }
 

@@ -6,12 +6,7 @@ struct LearnAssessmentStatusChip: View {
     let status: AssessmentDisplayStatus
 
     var body: some View {
-        Text(status.rawValue)
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(chipColor.opacity(0.2), in: Capsule())
-            .foregroundStyle(chipColor)
+        LearnStatusChip(status.rawValue, tint: chipColor)
     }
 
     private var chipColor: Color {

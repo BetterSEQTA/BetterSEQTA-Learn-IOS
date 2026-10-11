@@ -138,7 +138,7 @@ public extension Assessment {
     }
 }
 
-public struct MessageSummary: Sendable, Equatable, Codable {
+public struct MessageSummary: Sendable, Equatable, Hashable, Codable, Identifiable {
     public let id: Int
     public let title: String
     public let subtitle: String?

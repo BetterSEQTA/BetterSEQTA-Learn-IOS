@@ -187,10 +187,13 @@ public enum SeqtaResponseParsers {
 
     public static func parseMessageDetail(payload: Any?, messageId: Int) -> MessageDetail? {
         guard let object = payload as? JSONObject else { return nil }
-        let html = JSONObjectHelpers.string(object, keys: "contents", "content", "body") ?? ""
-        let attachments = parseMessageAttachments(payload: object)
-        let read = messageReadFlag(object)
-        let starred = messageStarredFlag(object)
+        let root = (object["message"] as? JSONObject) ?? object
+        let html = JSONObjectHelpers.string(root, keys: "contents", "content", "body", "html")
+            ?? JSONObjectHelpers.string(object, keys: "contents", "content", "body", "html")
+            ?? ""
+        let attachments = parseMessageAttachments(payload: root)
+        let read = messageReadFlag(root)
+        let starred = messageStarredFlag(root)
         return MessageDetail(
             id: messageId,
             htmlBody: html,
@@ -278,13 +281,15 @@ public enum SeqtaResponseParsers {
 
     private static func parseNoticeRow(_ row: JSONObject) -> Notice? {
         guard let title = JSONObjectHelpers.string(row, keys: "title") else { return nil }
-        let contents = JSONObjectHelpers.string(row, keys: "contents") ?? ""
+        let contents =
+            JSONObjectHelpers.string(row, keys: "contents", "content", "body", "html")
+            ?? ""
         return Notice(
             title: title,
-            labelTitle: JSONObjectHelpers.string(row, keys: "label_title"),
-            labelId: JSONObjectHelpers.int(row, keys: "label"),
+            labelTitle: JSONObjectHelpers.string(row, keys: "label_title", "labelTitle"),
+            labelId: JSONObjectHelpers.int(row, keys: "label", "label_id", "labelId"),
             colour: JSONObjectHelpers.string(row, keys: "colour", "color"),
-            staff: JSONObjectHelpers.string(row, keys: "staff"),
+            staff: JSONObjectHelpers.string(row, keys: "staff", "author"),
             contents: contents
         )
     }
@@ -327,6 +332,9 @@ public enum SeqtaResponseParsers {
     private static func collectMessageRows(payload: Any?) -> [JSONObject] {
         if let array = payload as? [JSONObject] { return array }
         guard let object = payload as? JSONObject else { return [] }
+        if let messages = JSONObjectHelpers.array(object, keys: "messages"), !messages.isEmpty {
+            return messages
+        }
         return JSONObjectHelpers.array(object, keys: "items", "messages") ?? []
     }
 

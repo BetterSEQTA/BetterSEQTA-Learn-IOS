@@ -17,7 +17,7 @@ public struct LearnPortalsView: View {
     public var body: some View {
         Group {
             if viewModel.isLoading {
-                LearnLoadingState()
+                LearnLoadingState(preset: .portalGrid(cells: 8))
             } else if let error = viewModel.errorMessage {
                 LearnErrorBanner(message: error) {
                     Task { await viewModel.load() }
@@ -37,21 +37,24 @@ public struct LearnPortalsView: View {
                         .padding(.top, 12)
 
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(viewModel.portals) { portal in
+                        ForEach(Array(viewModel.portals.enumerated()), id: \.element.id) { index, portal in
                             Button {
+                                LearnHaptics.lightImpact()
                                 selectedPortal = portal
                             } label: {
                                 LearnPortalCard(portal: portal)
                             }
-                            .buttonStyle(.plain)
+                            .learnRowPress(scale: 0.97)
+                            .learnListEntrance(index: index)
                         }
                     }
                     .padding(16)
                 }
             }
         }
-        .background(LearnTheme.Colors.background)
-        .navigationTitle("Portals")
+        .background { LearnScreenBackground() }
+        .learnShellNavigationDepth(0)
+        .toolbar(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
         .refreshable { await viewModel.load() }
         .sheet(item: $selectedPortal) { portal in
@@ -102,7 +105,7 @@ private struct LearnPortalDetailSheet: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(LearnTheme.Colors.background)
+            .background { LearnScreenBackground() }
             .navigationTitle(portal.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

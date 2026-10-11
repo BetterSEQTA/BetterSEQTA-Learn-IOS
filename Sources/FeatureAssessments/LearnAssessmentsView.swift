@@ -13,30 +13,32 @@ public struct LearnAssessmentsView: View {
     public var body: some View {
         NavigationStack {
             assessmentsBody
+                .learnShellNavigationDepth(0)
                 .navigationDestination(item: $selectedAssessment) { assessment in
                     LearnAssessmentDetailView(viewModel: viewModel.detailViewModel(for: assessment))
                 }
         }
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     private var assessmentsBody: some View {
         VStack(spacing: 0) {
-            LearnScreenHeader(
-                title: "Assessments",
-                subtitle: "View upcoming and past tasks"
-            )
-
-            Picker("Tab", selection: $viewModel.selectedTab) {
-                ForEach(LearnAssessmentsTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
+            LearnUnderlineSegmentBar(
+                items: LearnAssessmentsTab.allCases.map { ($0, $0.rawValue) },
+                selection: viewModel.selectedTab,
+                density: .compact,
+                style: .discrete
+            ) { tab in
+                viewModel.selectedTab = tab
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, LearnLayout.horizontalPadding)
+            .padding(.top, 4)
+            .padding(.bottom, 2)
 
             Group {
                 if viewModel.isLoading {
-                    LearnLoadingState()
+                    LearnLoadingState(preset: .assessmentList(rows: 6))
+                        .animation(LearnMotion.spatialExpressiveFast, value: viewModel.isLoading)
                 } else if let error = viewModel.errorMessage,
                           viewModel.upcoming.isEmpty,
                           viewModel.past.isEmpty {
@@ -53,14 +55,17 @@ public struct LearnAssessmentsView: View {
                         List {
                             ForEach(viewModel.subjectGroups, id: \.subjectCode) { group in
                                 Section(group.subjectCode) {
-                                    ForEach(group.items) { item in
+                                    ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
                                         Button {
+                                            LearnHaptics.lightImpact()
                                             selectedAssessment = item
                                         } label: {
                                             LearnAssessmentRow(assessment: item)
                                         }
-                                        .buttonStyle(.plain)
+                                        .learnRowPress()
+                                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                                         .listRowBackground(Color.clear)
+                                        .learnListEntrance(index: index)
                                     }
                                 }
                             }
@@ -77,14 +82,19 @@ public struct LearnAssessmentsView: View {
                             : "Completed assessments will appear here once available."
                     )
                 } else {
-                    List(viewModel.visibleItems) { item in
-                        Button {
-                            selectedAssessment = item
-                        } label: {
-                            LearnAssessmentRow(assessment: item)
+                    List {
+                        ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
+                            Button {
+                                LearnHaptics.lightImpact()
+                                selectedAssessment = item
+                            } label: {
+                                LearnAssessmentRow(assessment: item)
+                            }
+                            .learnRowPress()
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .learnListEntrance(index: index)
                         }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Color.clear)
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -92,7 +102,7 @@ public struct LearnAssessmentsView: View {
                 }
             }
         }
-        .background(LearnTheme.Colors.background)
+        .background { LearnScreenBackground() }
         .task { await viewModel.load() }
         .onChange(of: viewModel.assessmentToOpen?.id) { _, _ in
             if let assessment = viewModel.consumeAssessmentToOpen() {
@@ -106,31 +116,19 @@ private struct LearnAssessmentRow: View {
     let assessment: Assessment
 
     var body: some View {
-        LearnGlassCard {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(assessment.subjectCode)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                    Spacer()
-                    if let grade = assessment.grade {
-                        Text(grade)
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(LearnTheme.Colors.primaryText)
-                    } else {
-                        LearnAssessmentStatusChip(status: assessment.listDisplayStatus())
-                    }
-                }
-                Text(assessment.title)
-                    .font(.headline)
-                    .foregroundStyle(LearnTheme.Colors.primaryText)
-                if let due = assessment.dueDate {
-                    Text(due)
-                        .font(.caption)
-                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            LearnListRow(
+                accent: LearnSubjectColour.parse(assessment.subjectCode),
+                title: assessment.title,
+                subtitle: assessment.subjectCode,
+                detail: assessment.dueDate.map { "Due \($0)" },
+                footnote: assessment.grade
+            )
+            if assessment.grade == nil {
+                LearnAssessmentStatusChip(status: assessment.listDisplayStatus())
             }
         }
+        .padding(.vertical, 4)
     }
 }
 

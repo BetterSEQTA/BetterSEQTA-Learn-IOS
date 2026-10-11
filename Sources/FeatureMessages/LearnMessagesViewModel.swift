@@ -35,6 +35,9 @@ public final class LearnMessagesViewModel {
     public func selectFolder(_ folder: MessageFolder) {
         guard selectedFolder != folder else { return }
         selectedFolder = folder
+        messages = []
+        hasMore = false
+        errorMessage = nil
         Task { await load() }
     }
 

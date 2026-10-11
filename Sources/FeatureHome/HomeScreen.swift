@@ -1,10 +1,13 @@
 import CoreDesign
 import Domain
+import FeatureNotices
 import SwiftUI
 
 public struct HomeScreen: View {
     @ObservedObject private var viewModel: HomeViewModel
     private let navigation: HomeNavigationCallbacks
+    @State private var selectedNotice: Notice?
+    @State private var scrollOffsetY: CGFloat = 0
 
     public init(viewModel: HomeViewModel, navigation: HomeNavigationCallbacks) {
         self.viewModel = viewModel
@@ -16,34 +19,17 @@ public struct HomeScreen: View {
         let subjectColours = subjectColourLookup(from: state.subjects)
         let filteredLessons = filteredLessons(from: state)
         let filteredAssessments = filteredAssessments(from: state)
-        let showFluidLoader = state.isInitialLoad && (
-            state.subjects.isLoading ||
-                state.lessons.isLoading ||
-                state.assessments.isLoading ||
-                state.notices.isLoading
-        )
-
         ScrollView {
-            LazyVStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: LearnTheme.Spacing.lg) {
+                LearnScrollOffsetReporter()
                 HomeDashboardHeader(displayName: state.displayName)
 
-                if showFluidLoader {
-                    HomeFluidLoader(
-                        progress: viewModel.loadProgress,
-                        phaseText: viewModel.loadPhaseText
-                    )
-                }
-
-                HomeShortcutsRow(navigation: navigation)
-                    .opacity(state.isInitialLoad ? 0.6 : 1)
-
-                if case .success = state.subjects {
-                    HomeSubjectFilterRow(
-                        subjectsState: state.subjects,
-                        selectedSubjectCode: state.selectedSubjectCode,
-                        onSelect: viewModel.selectSubjectFilter
-                    )
-                }
+                HomeFilterMenus(
+                    subjectsState: state.subjects,
+                    selectedSubjectCode: state.selectedSubjectCode,
+                    onSelectSubject: viewModel.selectSubjectFilter,
+                    navigation: navigation
+                )
 
                 lessonsSection(lessons: filteredLessons, state: state, navigation: navigation)
                 noticesSection(state: state, navigation: navigation)
@@ -54,12 +40,23 @@ public struct HomeScreen: View {
                     navigation: navigation
                 )
             }
-            .padding(.bottom, 16)
+            .padding(.horizontal, LearnLayout.horizontalPadding)
+            .padding(.bottom, 20)
+            .learnReadableWidth()
         }
+        .coordinateSpace(name: "learnScroll")
+        .onPreferenceChange(LearnScrollOffsetKey.self) { scrollOffsetY = $0 }
+        .learnScrollIslandChrome(
+            title: "Home",
+            progress: learnScrollProgress(from: scrollOffsetY)
+        )
         .refreshable {
             viewModel.refresh()
         }
-        .background(LearnTheme.Colors.background)
+        .background { LearnScreenBackground() }
+        .sheet(item: $selectedNotice) { notice in
+            LearnNoticeDetailView(notice: notice)
+        }
     }
 
     @ViewBuilder
@@ -68,48 +65,71 @@ public struct HomeScreen: View {
         state: HomeUiState,
         navigation: HomeNavigationCallbacks
     ) -> some View {
-        DashboardSectionHeader(
-            title: lessonSectionTitle(for: state.selectedDate),
-            subtitle: lessonSectionSubtitle(for: state.selectedDate),
-            actionLabel: "See all",
-            onAction: navigation.onTimetableClick,
-            trailing: {
-                AnyView(
-                    HStack(spacing: 0) {
-                        Button(action: viewModel.selectPreviousDay) {
-                            Image(systemName: "chevron.left")
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionHeader(
+                title: lessonSectionTitle(for: state.selectedDate),
+                subtitle: lessonSectionSubtitle(for: state.selectedDate),
+                actionLabel: "Timetable",
+                onAction: navigation.onTimetableClick,
+                trailing: {
+                    AnyView(
+                        HStack(spacing: 0) {
+                            Button {
+                                LearnHaptics.selection()
+                                viewModel.selectPreviousDay()
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(LearnPressFeedbackStyle(scale: 0.9))
+                            .accessibilityLabel("Previous day")
+                            Button {
+                                LearnHaptics.selection()
+                                viewModel.selectNextDay()
+                            } label: {
+                                Image(systemName: "chevron.right")
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(LearnPressFeedbackStyle(scale: 0.9))
+                            .accessibilityLabel("Next day")
                         }
-                        Button(action: viewModel.selectNextDay) {
-                            Image(systemName: "chevron.right")
-                        }
-                    }
-                    .foregroundStyle(LearnTheme.Colors.primaryText)
-                )
-            }
-        )
-
-        switch state.lessons {
-        case .loading:
-            ForEach(0 ..< 3, id: \.self) { _ in
-                widget { HomeSkeleton() }
-            }
-        case let .error(message):
-            widget { HomeSectionMessage(message: message) }
-        case .success:
-            if lessons.isEmpty {
-                widget {
-                    HomeSectionMessage(
-                        message: state.selectedSubjectCode == nil
-                            ? "No lessons scheduled for this day"
-                            : "No lessons for this subject today",
-                        secondary: state.selectedSubjectCode == nil
-                            ? "Use the arrows above or open Timetable for other days"
-                            : "Clear the subject filter or pick another day"
+                        .foregroundStyle(LearnTheme.Colors.primaryText)
                     )
                 }
-            } else {
-                ForEach(lessons, id: \.id) { lesson in
-                    widget { HomeLessonCard(lesson: lesson) }
+            )
+
+            LearnDirectionalContent(
+                identity: state.selectedDate,
+                direction: state.dayNavigationDirection
+            ) {
+                groupedLessonsContent(lessons: lessons, state: state)
+            }
+            .animation(LearnMotion.spatialStandardDefault, value: state.selectedDate)
+        }
+    }
+
+    @ViewBuilder
+    private func groupedLessonsContent(lessons: [TimetableLesson], state: HomeUiState) -> some View {
+        LearnGlassGroupedSection {
+            switch state.lessons {
+            case .loading:
+                HomeSkeleton()
+            case let .error(message):
+                HomeSectionMessage(message: message)
+            case .success:
+                if lessons.isEmpty {
+                    HomeSectionMessage(
+                        message: state.selectedSubjectCode == nil
+                            ? "No lessons scheduled"
+                            : "No lessons for this subject",
+                        secondary: "Change day or subject filter"
+                    )
+                } else {
+                    ForEach(Array(lessons.prefix(4).enumerated()), id: \.element.id) { index, lesson in
+                        if index > 0 { LearnGroupedDivider() }
+                        HomeLessonCard(lesson: lesson)
+                            .learnListEntrance(index: index)
+                    }
                 }
             }
         }
@@ -117,27 +137,30 @@ public struct HomeScreen: View {
 
     @ViewBuilder
     private func noticesSection(state: HomeUiState, navigation: HomeNavigationCallbacks) -> some View {
-        DashboardSectionHeader(
-            title: "Today's Notices",
-            subtitle: "Announcements from your school",
-            actionLabel: "See all",
-            onAction: navigation.onNoticesClick
-        )
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionHeader(
+                title: "Notices",
+                subtitle: "Today at school",
+                actionLabel: "All",
+                onAction: navigation.onNoticesClick
+            )
 
-        switch state.notices {
-        case .loading:
-            ForEach(0 ..< 2, id: \.self) { _ in
-                widget { HomeSkeleton() }
-            }
-        case let .error(message):
-            widget { HomeSectionMessage(message: message) }
-        case let .success(notices):
-            if notices.isEmpty {
-                widget { HomeSectionMessage(message: "No notices for today") }
-            } else {
-                ForEach(Array(notices.prefix(3).enumerated()), id: \.offset) { _, notice in
-                    widget {
-                        HomeNoticeCard(notice: notice, onTap: navigation.onNoticesClick)
+            LearnGlassGroupedSection {
+                switch state.notices {
+                case .loading:
+                    HomeSkeleton()
+                case let .error(message):
+                    HomeSectionMessage(message: message)
+                case let .success(notices):
+                    if notices.isEmpty {
+                        HomeSectionMessage(message: "No notices for today")
+                    } else {
+                        ForEach(Array(notices.prefix(3).enumerated()), id: \.element.id) { index, notice in
+                            if index > 0 { LearnGroupedDivider() }
+                            HomeNoticeCard(notice: notice) {
+                                selectedNotice = notice
+                            }
+                        }
                     }
                 }
             }
@@ -151,53 +174,38 @@ public struct HomeScreen: View {
         subjectColours: [String: String?],
         navigation: HomeNavigationCallbacks
     ) -> some View {
-        DashboardSectionHeader(
-            title: "Upcoming Assessments",
-            subtitle: "Tasks due soon across your subjects",
-            actionLabel: "See all",
-            onAction: navigation.onAssessmentsClick
-        )
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionHeader(
+                title: "Tasks",
+                subtitle: "Coming up",
+                actionLabel: "All",
+                onAction: navigation.onAssessmentsClick
+            )
 
-        switch state.assessments {
-        case .loading:
-            ForEach(0 ..< 3, id: \.self) { _ in
-                widget { HomeSkeleton() }
-            }
-        case let .error(message):
-            widget { HomeSectionMessage(message: message) }
-        case .success:
-            if filtered.isEmpty {
-                widget {
-                    HomeSectionMessage(
-                        message: state.selectedSubjectCode == nil
-                            ? "No upcoming assessments"
-                            : "No assessments for this subject",
-                        secondary: state.selectedSubjectCode == nil
-                            ? nil
-                            : "Choose All or another subject filter"
-                    )
-                }
-            } else {
-                ForEach(Array(filtered.prefix(5)), id: \.id) { assessment in
-                    widget {
-                        HomeAssessmentCard(
-                            assessment: assessment,
-                            colour: HomeColourUtils.parseSubjectColour(
-                                subjectColours[assessment.subjectCode] ?? nil
-                            ),
-                            onTap: { navigation.onAssessmentClick(assessment) }
-                        )
+            LearnGlassGroupedSection {
+                switch state.assessments {
+                case .loading:
+                    HomeSkeleton()
+                case let .error(message):
+                    HomeSectionMessage(message: message)
+                case .success:
+                    if filtered.isEmpty {
+                        HomeSectionMessage(message: "No upcoming tasks")
+                    } else {
+                        ForEach(Array(filtered.prefix(4).enumerated()), id: \.element.id) { index, assessment in
+                            if index > 0 { LearnGroupedDivider() }
+                            HomeAssessmentCard(
+                                assessment: assessment,
+                                colour: HomeColourUtils.parseSubjectColour(
+                                    subjectColours[assessment.subjectCode] ?? nil
+                                ),
+                                onTap: { navigation.onAssessmentClick(assessment) }
+                            )
+                        }
                     }
                 }
             }
         }
-    }
-
-    private func widget<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        LearnGlassCard {
-            content()
-        }
-        .padding(.horizontal, 12)
     }
 
     private func subjectColourLookup(from state: SectionLoadState<[Subject]>) -> [String: String?] {

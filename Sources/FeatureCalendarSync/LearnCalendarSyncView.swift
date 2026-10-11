@@ -3,7 +3,10 @@ import SwiftUI
 
 public struct LearnCalendarSyncView: View {
     @State private var viewModel: LearnCalendarSyncViewModel
+    @State private var inlineToast: String?
+    @State private var syncMorphSuccess = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.learnMotionProfile) private var motionProfile
 
     public init(viewModel: LearnCalendarSyncViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -16,7 +19,7 @@ public struct LearnCalendarSyncView: View {
                     .font(.subheadline)
                     .foregroundStyle(LearnTheme.Colors.secondaryText)
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
 
             Section("Access") {
                 Label(accessLabel, systemImage: accessIcon)
@@ -30,7 +33,7 @@ public struct LearnCalendarSyncView: View {
                         .foregroundStyle(LearnTheme.Colors.secondaryText)
                 }
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
 
             Section("Calendar sync") {
                 Toggle("Timetable calendar sync", isOn: Binding(
@@ -46,7 +49,7 @@ public struct LearnCalendarSyncView: View {
                     .font(.footnote)
                     .foregroundStyle(LearnTheme.Colors.secondaryText)
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
 
             Section("What to sync") {
                 Toggle("Timetable lessons", isOn: Binding(
@@ -60,7 +63,7 @@ public struct LearnCalendarSyncView: View {
                 ))
                 .disabled(!viewModel.preferences.isEnabled)
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
 
             if viewModel.authorizationStatus == .authorized, !viewModel.calendars.isEmpty {
                 Section("Destination calendar") {
@@ -76,27 +79,43 @@ public struct LearnCalendarSyncView: View {
                         }
                     }
                 }
-                .listRowBackground(LearnTheme.Colors.card)
+                .listRowBackground(LearnGlassListRowBackground())
             }
 
             Section {
                 Button {
-                    Task { await viewModel.syncNow() }
+                    Task {
+                        await viewModel.syncNow()
+                        if viewModel.errorMessage == nil {
+                            await LearnMorphSuccessFeedback.run(richAnimations: motionProfile.richAnimations) {
+                                syncMorphSuccess = $0
+                            }
+                        }
+                    }
                 } label: {
                     HStack {
                         Text("Sync now")
                         Spacer()
                         if viewModel.isSyncing {
                             ProgressView()
+                        } else {
+                            Image(systemName: syncMorphSuccess ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                                .font(.body.weight(.semibold))
+                                .contentTransition(.symbolEffect(.replace))
+                                .foregroundStyle(syncMorphSuccess ? Color.green.opacity(0.92) : LearnTheme.Colors.accent)
                         }
                     }
                 }
                 .disabled(viewModel.isSyncing || viewModel.authorizationStatus == .denied)
 
                 if let status = viewModel.statusMessage ?? viewModel.preferences.lastSyncSummary {
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(status)
+                            .font(.footnote)
+                            .foregroundStyle(LearnTheme.Colors.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        LearnCopyMorphIconButton(text: status, accessibilityLabel: "Copy sync status")
+                    }
                 }
                 if let last = viewModel.preferences.lastSyncedAt {
                     Text("Last sync: \(last.formatted(date: .abbreviated, time: .shortened))")
@@ -108,18 +127,40 @@ public struct LearnCalendarSyncView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Remove BetterSEQTA Learn events from the iOS Calendar app. This does not change SEQTA data.")
+                        .font(.footnote)
+                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                    HStack {
+                        Spacer(minLength: 0)
+                        LearnInlineDeleteConfirm(label: "Remove synced calendar events") {
+                            Task {
+                                await viewModel.removeSyncedCalendarItems()
+                                if let message = viewModel.statusMessage {
+                                    inlineToast = message
+                                }
+                            }
+                        }
+                        .disabled(viewModel.isRemovingSyncedEvents || viewModel.authorizationStatus != .authorized)
+                    }
+                }
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
         }
-        .scrollContentBackground(.hidden)
-        .background(LearnTheme.Colors.background)
-        .navigationTitle("Calendar sync")
+        .learnInsetSettingsList()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Done") { dismiss() }
+                Button("Done") {
+                    LearnHaptics.lightImpact()
+                    dismiss()
+                }
             }
         }
+        .presentationDragIndicator(.visible)
+        .learnLiquidGlassSheetBackground()
+        .learnInlineToast(message: $inlineToast)
         .onAppear { viewModel.refresh() }
     }
 

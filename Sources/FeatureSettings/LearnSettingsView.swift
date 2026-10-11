@@ -23,12 +23,13 @@ public struct LearnSettingsView: View {
             Section("Account") {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(viewModel.displayName ?? "Signed in")
-                        .font(.headline)
-                    Text(viewModel.schoolHost ?? "School account")
-                        .font(.subheadline)
-                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                        .font(LearnTypography.rowTitle)
                 }
-                .listRowBackground(LearnTheme.Colors.card)
+                .listRowBackground(LearnGlassListRowBackground())
+                if let host = viewModel.schoolHost, !host.isEmpty {
+                    LearnCopyMorphRow(title: "School URL", value: host)
+                        .listRowBackground(LearnGlassListRowBackground())
+                }
             }
 
             Section("Preferences") {
@@ -44,7 +45,7 @@ public struct LearnSettingsView: View {
                     }
                 }
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
 
             Section {
                 Button(role: .destructive) {
@@ -58,11 +59,11 @@ public struct LearnSettingsView: View {
                 }
                 .disabled(viewModel.isLoggingOut)
             }
-            .listRowBackground(LearnTheme.Colors.card)
+            .listRowBackground(LearnGlassListRowBackground())
         }
-        .scrollContentBackground(.hidden)
-        .background(LearnTheme.Colors.background)
-        .navigationTitle("Settings")
+        .learnInsetSettingsList()
+        .learnShellNavigationDepth(0)
+        .toolbar(.hidden, for: .navigationBar)
         .confirmationDialog(
             "Log out of BetterSEQTA Learn?",
             isPresented: $showLogoutConfirm,

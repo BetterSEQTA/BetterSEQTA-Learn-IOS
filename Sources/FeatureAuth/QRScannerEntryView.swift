@@ -44,7 +44,7 @@ public struct QRScannerEntryView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .padding(LearnTheme.Spacing.md)
-                .background(LearnTheme.Colors.card, in: RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius))
+                .learnGlassInsetField()
                 .foregroundStyle(LearnTheme.Colors.primaryText)
 
             Button("Continue with link", action: onSubmitLink)

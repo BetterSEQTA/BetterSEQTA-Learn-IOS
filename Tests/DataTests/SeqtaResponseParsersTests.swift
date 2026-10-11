@@ -407,6 +407,20 @@ final class SeqtaResponseParsersTests: XCTestCase {
         XCTAssertEqual(notices.count, 1)
         XCTAssertEqual(notices[0].title, "Office Helper")
         XCTAssertEqual(notices[0].labelId, 76)
+        XCTAssertEqual(notices[0].contents, "<p>Office Helper roster</p>")
+    }
+
+    func testNoticePlainTextStripsHTML() {
+        let notice = Notice(
+            title: "Test",
+            labelTitle: nil,
+            labelId: nil,
+            colour: nil,
+            staff: nil,
+            contents: "<p>Hello <strong>world</strong></p>"
+        )
+        XCTAssertEqual(notice.plainTextContents, "Hello world")
+        XCTAssertEqual(notice.contentPreview(maxLength: 50), "Hello world")
     }
 
     func testParseLoginProfileReadsNestedPayloadAndFieldAliases() throws {

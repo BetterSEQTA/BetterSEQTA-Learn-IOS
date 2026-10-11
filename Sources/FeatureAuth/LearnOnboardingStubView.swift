@@ -34,7 +34,7 @@ public struct LearnOnboardingStubView: View {
             }
             .padding(LearnTheme.Spacing.md)
         }
-        .background(LearnTheme.Colors.background.ignoresSafeArea())
+        .background { LearnScreenBackground() }
         .environment(\.learnMotionProfile, motionProfile)
         .onAppear {
             let remembered = loginViewModel.rememberedSchoolUrl

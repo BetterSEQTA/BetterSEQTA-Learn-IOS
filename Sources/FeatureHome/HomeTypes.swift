@@ -1,3 +1,4 @@
+import CoreDesign
 import Domain
 import Foundation
 
@@ -42,6 +43,7 @@ public enum SectionLoadState<T: Sendable>: Sendable, Equatable where T: Equatabl
 
 public struct HomeUiState: Equatable, Sendable {
     public var selectedDate: Date
+    public var dayNavigationDirection: LearnDayNavigationDirection
     public var subjects: SectionLoadState<[Subject]>
     public var lessons: SectionLoadState<[TimetableLesson]>
     public var assessments: SectionLoadState<[Assessment]>
@@ -53,6 +55,7 @@ public struct HomeUiState: Equatable, Sendable {
 
     public init(
         selectedDate: Date = Calendar.current.startOfDay(for: Date()),
+        dayNavigationDirection: LearnDayNavigationDirection = .forward,
         subjects: SectionLoadState<[Subject]> = .loading,
         lessons: SectionLoadState<[TimetableLesson]> = .loading,
         assessments: SectionLoadState<[Assessment]> = .loading,
@@ -63,6 +66,7 @@ public struct HomeUiState: Equatable, Sendable {
         displayName: String? = nil
     ) {
         self.selectedDate = selectedDate
+        self.dayNavigationDirection = dayNavigationDirection
         self.subjects = subjects
         self.lessons = lessons
         self.assessments = assessments

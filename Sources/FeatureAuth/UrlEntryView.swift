@@ -17,15 +17,20 @@ public struct UrlEntryView: View {
             Text(title)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(LearnTheme.Colors.secondaryText)
-            TextField(placeholder, text: $text)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .textContentType(.URL)
-                .keyboardType(.URL)
-                .submitLabel(.continue)
-                .padding(LearnTheme.Spacing.md)
-                .background(LearnTheme.Colors.card, in: RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius))
-                .foregroundStyle(LearnTheme.Colors.primaryText)
+            HStack(spacing: 8) {
+                TextField(placeholder, text: $text)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .textContentType(.URL)
+                    .keyboardType(.URL)
+                    .submitLabel(.continue)
+                    .padding(LearnTheme.Spacing.md)
+                    .learnGlassInsetField()
+                    .foregroundStyle(LearnTheme.Colors.primaryText)
+                if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    LearnCopyMorphIconButton(text: text, accessibilityLabel: "Copy \(title)")
+                }
+            }
         }
     }
 }

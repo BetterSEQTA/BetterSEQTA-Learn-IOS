@@ -10,6 +10,7 @@ public final class LearnCalendarSyncViewModel {
     public var authorizationStatus: CalendarSyncAuthorizationStatus
     public var calendars: [CalendarSyncCalendarOption] = []
     public var isSyncing = false
+    public var isRemovingSyncedEvents = false
     public var errorMessage: String?
     public var statusMessage: String?
 
@@ -68,6 +69,26 @@ public final class LearnCalendarSyncViewModel {
     public func requestAccess() async {
         authorizationStatus = await repository.requestAccess()
         refreshCalendars()
+    }
+
+    public func removeSyncedCalendarItems() async {
+        guard !isRemovingSyncedEvents else { return }
+        isRemovingSyncedEvents = true
+        errorMessage = nil
+        statusMessage = nil
+        defer { isRemovingSyncedEvents = false }
+
+        let result = await repository.removeSyncedEvents()
+        preferences = repository.loadPreferences()
+        switch result {
+        case .success(let count):
+            statusMessage = count > 0
+                ? "Removed \(count) synced events from Calendar."
+                : "No synced events were found to remove."
+            errorMessage = nil
+        case .failure(let error):
+            errorMessage = localized(error)
+        }
     }
 
     public func syncNow() async {

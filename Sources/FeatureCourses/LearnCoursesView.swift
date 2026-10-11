@@ -13,7 +13,7 @@ public struct LearnCoursesView: View {
         NavigationStack {
             Group {
                 if viewModel.isLoading {
-                    LearnLoadingState()
+                    LearnLoadingState(preset: .list(rows: 8))
                 } else if let error = viewModel.errorMessage, viewModel.subjects.isEmpty {
                     LearnErrorBanner(message: error) {
                         Task { await viewModel.load() }
@@ -21,11 +21,15 @@ public struct LearnCoursesView: View {
                 } else if viewModel.subjects.isEmpty {
                     LearnEmptyState(title: "No subjects", message: "Your subject list is empty.")
                 } else {
-                    List(viewModel.subjects) { subject in
-                        NavigationLink(value: subject) {
-                            LearnSubjectRow(subject: subject)
+                    List {
+                        ForEach(Array(viewModel.subjects.enumerated()), id: \.element.id) { index, subject in
+                            NavigationLink(value: subject) {
+                                LearnSubjectRow(subject: subject)
+                            }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .learnListEntrance(index: index)
                         }
-                        .listRowBackground(Color.clear)
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -37,8 +41,9 @@ public struct LearnCoursesView: View {
                     }
                 }
             }
-            .background(LearnTheme.Colors.background)
-            .navigationTitle("Courses")
+            .background { LearnScreenBackground() }
+            .learnShellNavigationDepth(0)
+            .navigationBarHidden(true)
             .task { await viewModel.load() }
             .refreshable { await viewModel.load() }
         }
@@ -49,16 +54,12 @@ private struct LearnSubjectRow: View {
     let subject: Subject
 
     var body: some View {
-        LearnGlassCard {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(subject.code)
-                    .font(.headline)
-                    .foregroundStyle(LearnTheme.Colors.primaryText)
-                Text(subject.title)
-                    .font(.subheadline)
-                    .foregroundStyle(LearnTheme.Colors.secondaryText)
-            }
-        }
+        LearnListRow(
+            accent: LearnSubjectColour.parse(subject.code),
+            title: subject.title,
+            subtitle: subject.code,
+            showsChevron: true
+        )
     }
 }
 
@@ -85,7 +86,16 @@ private struct LearnCourseDetailView: View {
                 .scrollContentBackground(.hidden)
             }
         }
-        .background(LearnTheme.Colors.background)
-        .navigationTitle(subject.code)
+        .background { LearnScreenBackground() }
+        .learnShellNavigationDepth(1)
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top) {
+            LearnInlineNavBar(title: subject.code) {
+                LearnCopyMorphIconButton(
+                    text: "\(subject.code)\n\(subject.title)",
+                    accessibilityLabel: "Copy subject details"
+                )
+            }
+        }
     }
 }

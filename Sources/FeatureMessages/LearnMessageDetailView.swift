@@ -11,10 +11,19 @@ public struct LearnMessageDetailView: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            LearnInlineNavBar(title: viewModel.summary.title) {
+                HStack(spacing: 2) {
+                    LearnCopyMorphIconButton(
+                        text: viewModel.summary.title,
+                        accessibilityLabel: "Copy message subject"
+                    )
+                    messageActions
+                }
+            }
             Group {
                 if viewModel.isLoading, viewModel.htmlBody == nil {
-                    LearnLoadingState()
+                    LearnLoadingState(preset: .detailBody)
                 } else if let error = viewModel.errorMessage, viewModel.htmlBody == nil {
                     LearnErrorBanner(message: error) {
                         Task { await viewModel.load() }
@@ -22,9 +31,6 @@ public struct LearnMessageDetailView: View {
                 } else if let html = viewModel.htmlBody {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text(viewModel.summary.title)
-                                .font(.title2.weight(.semibold))
-                                .foregroundStyle(LearnTheme.Colors.primaryText)
                             if let subtitle = viewModel.summary.subtitle {
                                 Text(subtitle)
                                     .font(.subheadline)
@@ -37,6 +43,7 @@ public struct LearnMessageDetailView: View {
                                         .foregroundStyle(LearnTheme.Colors.primaryText)
                                     ForEach(viewModel.attachments) { file in
                                         Button {
+                                            LearnHaptics.lightImpact()
                                             Task { await viewModel.openAttachment(file) }
                                         } label: {
                                             LearnMessageAttachmentRow(
@@ -44,7 +51,7 @@ public struct LearnMessageDetailView: View {
                                                 isLoading: viewModel.downloadingAttachmentUUID == file.uuid
                                             )
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(LearnPressFeedbackStyle(scale: 0.98))
                                         .disabled(viewModel.downloadingAttachmentUUID != nil)
                                     }
                                 }
@@ -56,52 +63,11 @@ public struct LearnMessageDetailView: View {
                     }
                 }
             }
-            .background(LearnTheme.Colors.background)
-            .navigationTitle("Message")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItemGroup(placement: .primaryAction) {
-                    if viewModel.folder == .trash {
-                        Button {
-                            Task {
-                                if await viewModel.restoreToInbox() { dismiss() }
-                            }
-                        } label: {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                        .disabled(viewModel.isMoving)
-                        .accessibilityLabel("Restore to inbox")
-                        Button(role: .destructive) {
-                            Task {
-                                if await viewModel.deleteFromTrash() { dismiss() }
-                            }
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .disabled(viewModel.isMoving)
-                        .accessibilityLabel("Delete message")
-                    } else {
-                        Button {
-                            Task { await viewModel.toggleStar() }
-                        } label: {
-                            Image(systemName: viewModel.isStarred ? "star.fill" : "star")
-                        }
-                        .disabled(viewModel.isUpdatingStar)
-                        .accessibilityLabel(viewModel.isStarred ? "Unstar message" : "Star message")
-                        Button(role: .destructive) {
-                            Task {
-                                if await viewModel.moveToTrash() { dismiss() }
-                            }
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .disabled(viewModel.isMoving)
-                        .accessibilityLabel("Move to trash")
-                    }
-                }
-            }
+            .animation(nil, value: viewModel.isLoading)
+        }
+        .background { LearnScreenBackground() }
+        .learnShellNavigationDepth(1)
+        .toolbar(.hidden, for: .navigationBar)
             .alert(
                 "Couldn't open attachment",
                 isPresented: Binding(
@@ -113,7 +79,48 @@ public struct LearnMessageDetailView: View {
             } message: {
                 Text(viewModel.attachmentErrorMessage ?? "")
             }
-            .task { await viewModel.load() }
+        .task { await viewModel.load() }
+    }
+
+    @ViewBuilder
+    private var messageActions: some View {
+        HStack(spacing: 4) {
+            if viewModel.folder == .trash {
+                LearnMorphingActionIconButton(
+                    idleImage: "arrow.uturn.backward",
+                    accessibilityLabel: "Restore to inbox"
+                ) {
+                    if await viewModel.restoreToInbox() {
+                        dismiss()
+                        return true
+                    }
+                    return false
+                }
+                .disabled(viewModel.isMoving)
+                LearnInlineDeleteConfirm(label: "Delete message") {
+                    Task {
+                        if await viewModel.deleteFromTrash() { dismiss() }
+                    }
+                }
+                .disabled(viewModel.isMoving)
+            } else {
+                LearnMorphingActionIconButton(
+                    idleImage: viewModel.isStarred ? "star.fill" : "star",
+                    successImage: "checkmark.circle.fill",
+                    tint: Color.yellow.opacity(0.95),
+                    accessibilityLabel: viewModel.isStarred ? "Unstar message" : "Star message"
+                ) {
+                    await viewModel.toggleStar()
+                    return true
+                }
+                .disabled(viewModel.isUpdatingStar)
+                LearnInlineDeleteConfirm(label: "Move to trash") {
+                    Task {
+                        if await viewModel.moveToTrash() { dismiss() }
+                    }
+                }
+                .disabled(viewModel.isMoving)
+            }
         }
     }
 }
@@ -123,25 +130,32 @@ private struct LearnMessageAttachmentRow: View {
     let isLoading: Bool
 
     var body: some View {
-        LearnGlassCard {
-            HStack(spacing: 12) {
-                Image(systemName: "paperclip")
+        HStack(spacing: 12) {
+            Image(systemName: "paperclip")
+                .foregroundStyle(LearnTheme.Colors.secondaryText)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.filename)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(LearnTheme.Colors.primaryText)
+                    .lineLimit(2)
+                Text(LearnMessageAttachmentFormatting.sizeLabel(file.size))
+                    .font(.caption)
                     .foregroundStyle(LearnTheme.Colors.secondaryText)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(file.filename)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(LearnTheme.Colors.primaryText)
-                        .lineLimit(2)
-                    Text(LearnMessageAttachmentFormatting.sizeLabel(file.size))
-                        .font(.caption)
-                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                }
-                Spacer(minLength: 4)
-                if isLoading {
-                    ProgressView()
-                }
+            }
+            Spacer(minLength: 4)
+            if isLoading {
+                ProgressView()
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LearnTheme.Colors.secondaryText)
             }
         }
+        .padding(14)
+        .background(
+            LearnTheme.Colors.card.opacity(0.55),
+            in: RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius, style: .continuous)
+        )
     }
 }
 

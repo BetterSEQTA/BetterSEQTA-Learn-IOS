@@ -1,10 +1,15 @@
+import Combine
 import CoreDesign
 import Domain
 import SwiftUI
 
 public struct LearnTimetableView: View {
     @State private var viewModel: LearnTimetableViewModel
-    @State private var showDatePicker = false
+    @State private var now = Date()
+    @State private var weekPagerPage = 0
+    @Environment(\.learnMotionProfile) private var motionProfile
+
+    private let nowTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     public init(viewModel: LearnTimetableViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -12,115 +17,407 @@ public struct LearnTimetableView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            LearnTimetableDateHeader(
-                date: viewModel.selectedDate,
-                onPrevious: viewModel.previousDay,
-                onNext: viewModel.nextDay,
-                onPickDate: { showDatePicker = true }
+            timetableChrome
+            content
+        }
+        .background { LearnScreenBackground() }
+        .learnShellNavigationDepth(0)
+        .task { await viewModel.load() }
+        .refreshable { await viewModel.refresh() }
+        .onReceive(nowTimer) { tick in
+            now = tick
+        }
+    }
+
+    private var timetableChrome: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LearnTimetableWeekPager(
+                page: $weekPagerPage,
+                viewModel: viewModel,
+                onSelectDay: { viewModel.selectDate($0) }
             )
 
-            Group {
-                if viewModel.isLoading {
-                    LearnLoadingState()
-                } else if let error = viewModel.errorMessage {
-                    LearnErrorBanner(message: error) {
-                        Task { await viewModel.refresh() }
+            LearnUnderlineSegmentBar(
+                items: LearnTimetableDisplayMode.allCases.map { ($0, $0.label) },
+                selection: viewModel.displayMode,
+                density: .compact,
+                style: .discrete
+            ) { mode in
+                viewModel.selectDisplayMode(mode)
+            }
+            .padding(.horizontal, LearnLayout.horizontalPadding)
+        }
+        .padding(.top, 2)
+        .padding(.bottom, 6)
+        .overlay(alignment: .bottom) {
+            LearnSeparatorHairline()
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        Group {
+            if viewModel.isLoading, viewModel.lessons.isEmpty {
+                LearnLoadingState(preset: .timetableDay)
+            } else if let error = viewModel.errorMessage, viewModel.lessons.isEmpty {
+                LearnErrorBanner(message: error) {
+                    Task { await viewModel.refresh() }
+                }
+            } else if viewModel.lessons.isEmpty {
+                LearnEmptyState(
+                    title: "No lessons",
+                    message: viewModel.isSelectedDateToday
+                        ? "You're free for the rest of the day."
+                        : "Nothing scheduled on this day."
+                )
+                .frame(maxHeight: .infinity)
+            } else if viewModel.displayMode == .day {
+                dayScheduleBody
+            } else {
+                agendaScrollBody
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(LearnMotion.spatialStandardDefault, value: viewModel.displayMode)
+    }
+
+    private var agendaScrollBody: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                spotlightSection
+                LearnDirectionalContent(
+                    identity: viewModel.selectedDate,
+                    direction: viewModel.dayNavigationDirection
+                ) {
+                    LearnTimetableAgendaList(
+                        lessons: viewModel.lessons,
+                        phase: { viewModel.phase(for: $0, now: now) }
+                    )
+                }
+            }
+            .padding(.bottom, 24)
+        }
+    }
+
+    private var dayScheduleBody: some View {
+        VStack(spacing: 0) {
+            if viewModel.isSelectedDateToday, let spotlight = viewModel.spotlightLesson(now: now) {
+                LearnTimetableSpotlightCard(
+                    lesson: spotlight,
+                    phase: viewModel.phase(for: spotlight, now: now),
+                    minutesUntil: viewModel.minutesUntilStart(of: spotlight, now: now),
+                    compact: true
+                )
+                .padding(.horizontal, LearnLayout.horizontalPadding)
+                .padding(.vertical, 10)
+            }
+            LearnDirectionalContent(
+                identity: viewModel.selectedDate,
+                direction: viewModel.dayNavigationDirection
+            ) {
+                LearnTimetableDayGrid(
+                    lessons: viewModel.lessons,
+                    showNowIndicator: viewModel.isSelectedDateToday,
+                    referenceDate: now
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var spotlightSection: some View {
+        if let spotlight = viewModel.spotlightLesson(now: now) {
+            LearnTimetableSpotlightCard(
+                lesson: spotlight,
+                phase: viewModel.phase(for: spotlight, now: now),
+                minutesUntil: viewModel.minutesUntilStart(of: spotlight, now: now),
+                compact: false
+            )
+            .padding(.horizontal, LearnLayout.horizontalPadding)
+            .padding(.top, 12)
+        }
+    }
+}
+
+// MARK: - Week pager (swipe changes week)
+
+private struct LearnTimetableWeekPager: View {
+    @Binding var page: Int
+    let viewModel: LearnTimetableViewModel
+    let onSelectDay: (Date) -> Void
+
+    @Namespace private var dayHighlight
+
+    private let pages = [-1, 0, 1]
+
+    var body: some View {
+        VStack(spacing: 4) {
+            TabView(selection: $page) {
+                ForEach(pages, id: \.self) { offset in
+                    weekRow(days: viewModel.weekDays(pageOffset: offset))
+                        .tag(offset)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            LearnFluidPageIndicator(count: 3, index: page + 1)
+        }
+        .frame(height: 62)
+        .onChange(of: page) { _, newPage in
+            guard newPage != 0 else { return }
+            LearnHaptics.selection()
+            viewModel.shiftWeek(by: newPage > 0 ? 1 : -1)
+            LearnMotion.withoutAnimation {
+                page = 0
+            }
+        }
+    }
+
+    private func weekRow(days: [Date]) -> some View {
+        HStack(spacing: 6) {
+            ForEach(days, id: \.self) { day in
+                dayCell(day)
+            }
+        }
+        .padding(.horizontal, LearnLayout.horizontalPadding)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func dayCell(_ day: Date) -> some View {
+        let calendar = Calendar.current
+        let isSelected = calendar.isDate(day, inSameDayAs: viewModel.selectedDate)
+        let isToday = calendar.isDateInToday(day)
+        return Button {
+            LearnHaptics.selection()
+            withAnimation(LearnMotion.spatialStandardDefault) {
+                onSelectDay(day)
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Text(day, format: .dateTime.weekday(.narrow))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(
+                        isSelected
+                            ? LearnTheme.Colors.primaryText
+                            : LearnTheme.Colors.secondaryText
+                    )
+                ZStack {
+                    if isToday && !isSelected {
+                        Circle()
+                            .strokeBorder(LearnTheme.Colors.accent.opacity(0.55), lineWidth: 1.5)
+                            .frame(width: 30, height: 30)
                     }
-                } else if viewModel.lessons.isEmpty {
-                    LearnEmptyState(title: "No lessons", message: "No lessons found for this day.")
-                } else {
-                    List(viewModel.lessons) { lesson in
-                        LearnGlassCard {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(lesson.subjectCode)
-                                    .font(.headline)
-                                    .foregroundStyle(LearnTheme.Colors.primaryText)
-                                Text(lesson.title)
-                                    .font(.subheadline)
-                                    .foregroundStyle(LearnTheme.Colors.secondaryText)
-                                if let room = lesson.room {
-                                    Text(room)
-                                        .font(.caption)
-                                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                                }
+                    Text(day, format: .dateTime.day())
+                        .font(.subheadline.weight(isSelected ? .bold : .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(LearnTheme.Colors.primaryText.opacity(isSelected ? 1 : 0.85))
+                        .frame(width: 30, height: 30)
+                        .background {
+                            if isSelected {
+                                Circle()
+                                    .fill(LearnTheme.Colors.accent.opacity(0.22))
+                                    .matchedGeometryEffect(id: "dayBubble", in: dayHighlight)
                             }
                         }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .refreshable { await viewModel.refresh() }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
-        .background(LearnTheme.Colors.background)
-        .task { await viewModel.load() }
-        .sheet(isPresented: $showDatePicker) {
-            LearnDatePickerSheet(date: viewModel.selectedDate) { picked in
-                viewModel.selectDate(picked)
-                showDatePicker = false
-            } onCancel: {
-                showDatePicker = false
-            }
-        }
+        .buttonStyle(LearnPressFeedbackStyle(scale: 0.96))
+        .accessibilityLabel(day.formatted(.dateTime.weekday(.wide).month().day()))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
-private struct LearnTimetableDateHeader: View {
-    let date: Date
-    let onPrevious: () -> Void
-    let onNext: () -> Void
-    let onPickDate: () -> Void
+// MARK: - Spotlight
+
+private struct LearnTimetableSpotlightCard: View {
+    let lesson: TimetableLesson
+    let phase: LearnLessonPhase
+    let minutesUntil: Int?
+    var compact: Bool = false
+
+    private var accent: Color { LearnSubjectColour.parse(lesson.colour) }
+
+    private var headline: String {
+        switch phase {
+        case .current: return "Now"
+        case .upcoming: return "Up next"
+        case .past: return "Later"
+        }
+    }
+
+    private var subline: String? {
+        switch phase {
+        case .current:
+            return lesson.displayTimeRange
+        case .upcoming:
+            if let minutesUntil {
+                return minutesUntil < 60
+                    ? "Starts in \(minutesUntil) min"
+                    : "Starts in \(minutesUntil / 60)h \(minutesUntil % 60)m"
+            }
+            return lesson.displayTimeRange
+        case .past:
+            return nil
+        }
+    }
 
     var body: some View {
-        HStack {
-            Button(action: onPrevious) {
-                Image(systemName: "chevron.left")
-            }
-            Spacer()
-            Button(action: onPickDate) {
-                Text(date, format: .dateTime.weekday(.wide).month().day().year())
-                    .font(.headline)
+        HStack(alignment: .top, spacing: compact ? 10 : 14) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(accent)
+                .frame(width: compact ? 4 : 5)
+            VStack(alignment: .leading, spacing: compact ? 4 : 6) {
+                HStack(spacing: 8) {
+                    Text(headline.uppercased())
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(phase == .current ? accent : LearnTheme.Colors.accent)
+                    if phase == .current {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: 6, height: 6)
+                    }
+                }
+                Text(lesson.title)
+                    .font(compact ? .body.weight(.semibold) : .title3.weight(.semibold))
                     .foregroundStyle(LearnTheme.Colors.primaryText)
+                    .lineLimit(compact ? 1 : 2)
+                if !compact {
+                    Text(lesson.subjectCode)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(accent.opacity(0.95))
+                }
+                if let subline {
+                    Text(subline)
+                        .font(compact ? .caption : .subheadline)
+                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                }
+                if !compact, let room = lesson.room, !room.isEmpty {
+                    Label(room, systemImage: "mappin.and.ellipse")
+                        .font(.subheadline)
+                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                }
             }
-            Spacer()
-            Button(action: onNext) {
-                Image(systemName: "chevron.right")
-            }
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
-        .padding()
+        .padding(compact ? 12 : 16)
+        .background {
+            RoundedRectangle(cornerRadius: LearnTheme.cardCornerRadius, style: .continuous)
+                .fill(accent.opacity(phase == .current ? 0.16 : 0.1))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: LearnTheme.cardCornerRadius, style: .continuous)
+                .strokeBorder(accent.opacity(phase == .current ? 0.45 : 0.2), lineWidth: 1)
+        }
     }
 }
 
-private struct LearnDatePickerSheet: View {
-    @State private var selection: Date
-    let onConfirm: (Date) -> Void
-    let onCancel: () -> Void
+// MARK: - Agenda
 
-    init(date: Date, onConfirm: @escaping (Date) -> Void, onCancel: @escaping () -> Void) {
-        _selection = State(initialValue: date)
-        self.onConfirm = onConfirm
-        self.onCancel = onCancel
-    }
+struct LearnTimetableAgendaList: View {
+    let lessons: [TimetableLesson]
+    let phase: (TimetableLesson) -> LearnLessonPhase
 
     var body: some View {
-        NavigationStack {
-            DatePicker("Date", selection: $selection, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .padding()
-                .navigationTitle("Select date")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel", action: onCancel)
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { onConfirm(selection) }
-                    }
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lessons.enumerated()), id: \.element.id) { index, lesson in
+                LearnTimetableAgendaRow(
+                    lesson: lesson,
+                    phase: phase(lesson),
+                    isLast: index == lessons.count - 1
+                )
+                .learnListEntrance(index: index)
+            }
         }
-        .presentationDetents([.medium, .large])
+        .padding(.horizontal, LearnLayout.horizontalPadding)
+        .padding(.top, 8)
+    }
+}
+
+private struct LearnTimetableAgendaRow: View {
+    let lesson: TimetableLesson
+    let phase: LearnLessonPhase
+    let isLast: Bool
+
+    private var accent: Color { LearnSubjectColour.parse(lesson.colour) }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            timelineColumn
+            lessonCard
+        }
+        .padding(.bottom, isLast ? 0 : 14)
+        .opacity(phase == .past ? 0.55 : 1)
+    }
+
+    private var timelineColumn: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .strokeBorder(
+                        phase == .current ? accent : LearnTheme.Colors.glassStroke,
+                        lineWidth: phase == .current ? 2.5 : 1
+                    )
+                    .background(
+                        Circle()
+                            .fill(phase == .current ? accent.opacity(0.35) : LearnTheme.Colors.background)
+                    )
+                    .frame(width: 12, height: 12)
+                if phase == .current {
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 5, height: 5)
+                }
+            }
+            if !isLast {
+                Rectangle()
+                    .fill(LearnTheme.Colors.glassStroke.opacity(0.5))
+                    .frame(width: 1)
+                    .frame(maxHeight: .infinity)
+                    .padding(.top, 4)
+            }
+        }
+        .frame(width: 12)
+        .padding(.top, 18)
+    }
+
+    private var lessonCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let range = lesson.displayTimeRange {
+                Text(range)
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(phase == .current ? accent : LearnTheme.Colors.secondaryText)
+            }
+            Text(lesson.title)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(LearnTheme.Colors.primaryText)
+            Text(lesson.subjectCode)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(accent.opacity(0.95))
+            if let room = lesson.room, !room.isEmpty {
+                Label(room, systemImage: "mappin.and.ellipse")
+                    .font(.caption)
+                    .foregroundStyle(LearnTheme.Colors.secondaryText)
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius, style: .continuous)
+                .fill(
+                    phase == .current
+                        ? accent.opacity(0.14)
+                        : LearnTheme.Colors.groupedFill.opacity(0.35)
+                )
+        }
+        .overlay {
+            if phase == .current {
+                RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius, style: .continuous)
+                    .strokeBorder(accent.opacity(0.4), lineWidth: 1)
+            }
+        }
     }
 }
 

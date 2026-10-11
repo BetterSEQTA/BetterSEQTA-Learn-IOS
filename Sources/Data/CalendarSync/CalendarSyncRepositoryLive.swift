@@ -101,6 +101,60 @@ public final class CalendarSyncRepositoryLive: CalendarSyncRepository {
         return .success(summary)
     }
 
+    public func removeSyncedEvents() async -> AppResult<Int> {
+        if authorizationStatus() != .authorized {
+            let status = await requestAccess()
+            guard status == .authorized else {
+                return .failure(.unknown(message: "Calendar access is required to remove synced events."))
+            }
+        }
+
+        var removed = 0
+        let timetableMap = preferencesStore.loadTimetableEventIDs()
+        let assessmentMap = preferencesStore.loadAssessmentEventIDs()
+        let trackedIDs = Set(timetableMap.values).union(assessmentMap.values)
+
+        for eventID in trackedIDs {
+            guard let event = eventStore.event(withIdentifier: eventID) else { continue }
+            do {
+                try eventStore.remove(event, span: .thisEvent, commit: false)
+                removed += 1
+            } catch {
+                return .failure(.unknown(message: "Could not remove a synced calendar event."))
+            }
+        }
+
+        let calendar = Calendar.current
+        let scanStart = calendar.date(byAdding: .year, value: -1, to: Date()) ?? Date()
+        let scanEnd = calendar.date(byAdding: .year, value: 2, to: Date()) ?? Date()
+        let predicate = eventStore.predicateForEvents(withStart: scanStart, end: scanEnd, calendars: nil)
+        for event in eventStore.events(matching: predicate) {
+            guard let notes = event.notes, notes.hasPrefix(syncMarkerPrefix) else { continue }
+            guard let eventID = event.eventIdentifier, !trackedIDs.contains(eventID) else { continue }
+            do {
+                try eventStore.remove(event, span: .thisEvent, commit: false)
+                removed += 1
+            } catch {
+                return .failure(.unknown(message: "Could not remove a synced calendar event."))
+            }
+        }
+
+        preferencesStore.saveTimetableEventIDs([:])
+        preferencesStore.saveAssessmentEventIDs([:])
+
+        switch commitStore() {
+        case .failure(let error):
+            return .failure(error)
+        case .success:
+            var preferences = loadPreferences()
+            preferences.lastSyncSummary = removed > 0
+                ? "Removed \(removed) synced events from Calendar."
+                : "No synced events were found to remove."
+            savePreferences(preferences)
+            return .success(removed)
+        }
+    }
+
     private func syncTimetable(into calendar: EKCalendar) async -> AppResult<Int> {
         let today = Calendar.current.startOfDay(for: Date())
         let fromDay = CalendarSyncDateParsing.isoDay(today)

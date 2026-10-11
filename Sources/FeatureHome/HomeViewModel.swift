@@ -1,4 +1,5 @@
 import CoreCommon
+import CoreDesign
 import Domain
 import FeatureNotifications
 import Foundation
@@ -36,6 +37,7 @@ public final class HomeViewModel: ObservableObject {
 
     public func selectPreviousDay() {
         let calendar = Calendar.current
+        uiState.dayNavigationDirection = .backward
         uiState.selectedDate = calendar.date(byAdding: .day, value: -1, to: uiState.selectedDate)
             ?? uiState.selectedDate
         reloadLessons()
@@ -43,6 +45,7 @@ public final class HomeViewModel: ObservableObject {
 
     public func selectNextDay() {
         let calendar = Calendar.current
+        uiState.dayNavigationDirection = .forward
         uiState.selectedDate = calendar.date(byAdding: .day, value: 1, to: uiState.selectedDate)
             ?? uiState.selectedDate
         reloadLessons()
@@ -63,7 +66,7 @@ public final class HomeViewModel: ObservableObject {
             uiState.lessons = .loading
             let result = await studentRepository.getTimetable(from: isoDate, until: isoDate)
             uiState.lessons = result.toSectionState([]) { lessons in
-                lessons.filter { $0.date == isoDate }
+                Self.sortedLessons(lessons.filter { $0.date == isoDate })
             }
         }
     }
@@ -100,7 +103,7 @@ public final class HomeViewModel: ObservableObject {
         if includeWarmup {
             uiState.subjects = subjects.toSectionState([]) { $0 }
             uiState.lessons = lessons.toSectionState([]) { items in
-                items.filter { $0.date == isoDate }
+                Self.sortedLessons(items.filter { $0.date == isoDate })
             }
             loadProgress = 0.55
             loadPhaseText = "Almost ready…"
@@ -120,7 +123,7 @@ public final class HomeViewModel: ObservableObject {
 
         uiState.subjects = subjects.toSectionState([]) { $0 }
         uiState.lessons = lessons.toSectionState([]) { items in
-            items.filter { $0.date == isoDate }
+            Self.sortedLessons(items.filter { $0.date == isoDate })
         }
         uiState.assessments = assessments.toSectionState([]) { items in
             items
@@ -147,6 +150,10 @@ public final class HomeViewModel: ObservableObject {
                 noticeAlertsEnabled: prefs.noticeAlertsEnabled
             )
         }
+    }
+
+    private static func sortedLessons(_ lessons: [TimetableLesson]) -> [TimetableLesson] {
+        lessons.sorted { ($0.fromTime ?? "") < ($1.fromTime ?? "") }
     }
 
     private func refreshWidgetSnapshot() async {

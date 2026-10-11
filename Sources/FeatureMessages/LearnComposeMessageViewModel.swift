@@ -34,6 +34,19 @@ public final class LearnComposeMessageViewModel {
         filterRecipients(students, query: studentSearch)
     }
 
+    public var allRecipients: [MessageRecipient] {
+        staff + students
+    }
+
+    public func autocompleteRecipients(query: String, excluding selected: [MessageRecipient]) -> [MessageRecipient] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        return filterRecipients(allRecipients, query: trimmed)
+            .filter { candidate in
+                !selected.contains(where: { $0.id == candidate.id && $0.isStaff == candidate.isStaff })
+            }
+    }
+
     public func loadRecipients() async {
         guard !isLoadingRecipients else { return }
         isLoadingRecipients = true

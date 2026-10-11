@@ -12,7 +12,7 @@ public struct LearnLoginView: View {
     private let onWebSessionLogin: (String, String) -> Void
     private let onClearError: () -> Void
 
-    @State private var selectedTab = 0
+    @State private var selectedTab: LearnLoginMethod = .qr
     @State private var baseUrl = ""
     @State private var webBaseUrl = ""
     @State private var username = ""
@@ -41,7 +41,13 @@ public struct LearnLoginView: View {
         ScrollView {
             VStack(spacing: LearnTheme.Spacing.lg) {
                 if isLoggingIn {
-                    FluidLoadingBarView(progress: 0.65, phaseText: "Connecting to SEQTA…")
+                    VStack(spacing: 12) {
+                        FluidLoadingBarView(progress: 0.65, phaseText: "Connecting to SEQTA…")
+                        LearnSkeletonView(preset: .settingsForm)
+                            .frame(height: 160)
+                            .allowsHitTesting(false)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 VStack(spacing: LearnTheme.Spacing.sm) {
@@ -57,15 +63,16 @@ public struct LearnLoginView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                Picker("Sign-in method", selection: $selectedTab) {
-                    Text("Scan QR").tag(0)
-                    Text("Sign in").tag(1)
-                    Text("School web").tag(2)
-                }
-                .pickerStyle(.segmented)
+                LearnUnderlineSegmentBar(
+                    items: LearnLoginMethod.allCases.map { ($0, $0.title) },
+                    selection: selectedTab,
+                    density: .regular,
+                    style: .fluid
+                ) { selectedTab = $0 }
+                .padding(.vertical, 4)
 
                 switch selectedTab {
-                case 0:
+                case .qr:
                     QRScannerEntryView(
                         pastedLink: $pastedLink,
                         isLoggingIn: isLoggingIn,
@@ -78,14 +85,15 @@ public struct LearnLoginView: View {
                             }
                         }
                     )
-                case 1:
+                case .credentials:
                     credentialsPanel
-                default:
+                case .schoolWeb:
                     schoolWebPanel
                 }
             }
             .padding(LearnTheme.Spacing.md)
         }
+        .background { LearnScreenBackground() }
         .environment(\.learnMotionProfile, LearnMotionProfile.current(reduceMotion: reduceMotion))
         .onAppear {
             applyRememberedUrl()
@@ -124,7 +132,7 @@ public struct LearnLoginView: View {
             UrlEntryView(title: "Username", placeholder: "student.username", text: $username)
             SecureField("Password", text: $password)
                 .padding(LearnTheme.Spacing.md)
-                .background(LearnTheme.Colors.card, in: RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius))
+                .learnGlassInsetField()
                 .foregroundStyle(LearnTheme.Colors.primaryText)
             Button("Sign in") {
                 let normalized = WebSessionCookieParser.normalizeSchoolBaseUrl(baseUrl.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -174,6 +182,20 @@ public struct LearnLoginView: View {
         guard !remembered.isEmpty else { return }
         if baseUrl.isEmpty { baseUrl = remembered }
         if webBaseUrl.isEmpty { webBaseUrl = remembered }
+    }
+}
+
+private enum LearnLoginMethod: String, CaseIterable, Hashable {
+    case qr
+    case credentials
+    case schoolWeb
+
+    var title: String {
+        switch self {
+        case .qr: return "QR"
+        case .credentials: return "Sign in"
+        case .schoolWeb: return "Web"
+        }
     }
 }
 

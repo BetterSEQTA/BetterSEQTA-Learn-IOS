@@ -3,7 +3,7 @@
 import PackageDescription
 
 let featureTargets: [(name: String, dependencies: [String])] = [
-    ("FeatureHome", ["Domain", "Data", "CoreDesign", "CoreSession", "FeatureNotifications"]),
+    ("FeatureHome", ["Domain", "Data", "CoreDesign", "CoreSession", "FeatureNotifications", "FeatureNotices"]),
     ("FeatureTimetable", ["Domain", "Data", "CoreDesign"]),
     ("FeatureCourses", ["Domain", "Data", "CoreDesign"]),
     ("FeatureAssessments", ["Domain", "Data", "CoreDesign"]),
@@ -58,7 +58,7 @@ let package = Package(
         ),
         .target(
             name: "CoreDesign",
-            dependencies: ["CoreCommon"]
+            dependencies: ["CoreCommon", "Domain"]
         ),
         .target(
             name: "FeatureAuth",
