@@ -1,0 +1,18 @@
+{
+  "payload": {
+    "items": [
+      {
+        "id": 1,
+        "code": "MATH",
+        "title": "Mathematics",
+        "colour": "#3B82F6"
+      },
+      {
+        "id": 2,
+        "code": "ENG",
+        "title": "English",
+        "colour": "#10B981"
+      }
+    ]
+  }
+}

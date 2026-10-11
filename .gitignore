@@ -1,0 +1,28 @@
+BetterSEQTA-Learn-Android/
+BetterSEQTA-Teach-Android/
+BetterSEQTA-Teach-IOS/
+DesQTA/
+
+# Local credentials and captured live API dumps
+Secrets/*
+!Secrets/.gitkeep
+!Secrets/README.md
+Tests/Fixtures/live/
+.env.local
+.env
+
+# Swift / xtool build artifacts
+.build/
+.swiftpm/
+xtool/
+.xtool-tmp/
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+Package.resolved
+
+# OS
+.DS_Store
+Thumbs.db
+
+.bsp/

@@ -1,0 +1,8 @@
+# Device install via xtool on WSL: omit widget appex to avoid
+# "Can't find free space of LoadCommands for CodeSignature" when signing.
+# Full widget build: use root xtool.yml (extensions enabled).
+version: 1
+bundleID: org.betterseqta.learn
+product: BetterSEQTALearn
+infoPath: Info.plist
+entitlementsPath: BetterSEQTALearn.entitlements

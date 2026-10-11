@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>BetterSEQTA Learn</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>org.betterseqta.learn</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>seqtalearn</string>
+				<string>betterseqtalearn</string>
+				<string>desqta</string>
+				<string>seqta</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan SEQTA login QR codes.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Sync your SEQTA timetable and assessment due dates to your calendar.</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>org.betterseqta.learn.calendar-sync</string>
+		<string>org.betterseqta.learn.home-sync</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+</dict>
+</plist>

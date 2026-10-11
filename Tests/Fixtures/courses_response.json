@@ -1,0 +1,12 @@
+{
+  "payload": {
+    "items": [
+      {
+        "id": 101,
+        "title": "Term 1 Overview",
+        "subjectCode": "MATH",
+        "colour": "#3B82F6"
+      }
+    ]
+  }
+}

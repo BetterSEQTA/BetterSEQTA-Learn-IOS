@@ -1,0 +1,13 @@
+{
+  "payload": {
+    "items": [
+      {
+        "messageID": 42,
+        "title": "Camp permission slip",
+        "subtitle": "Please return by Friday",
+        "timestamp": "2026-09-01T09:00:00",
+        "unread": true
+      }
+    ]
+  }
+}

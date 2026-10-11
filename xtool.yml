@@ -1,0 +1,9 @@
+version: 1
+bundleID: org.betterseqta.learn
+product: BetterSEQTALearn
+infoPath: Info.plist
+entitlementsPath: BetterSEQTALearn.entitlements
+extensions:
+  - product: LearnWidget
+    infoPath: LearnWidget-Info.plist
+    entitlementsPath: LearnWidget.entitlements
