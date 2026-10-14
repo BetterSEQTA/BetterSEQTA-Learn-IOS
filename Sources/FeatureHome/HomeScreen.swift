@@ -210,7 +210,10 @@ public struct HomeScreen: View {
 
     private func subjectColourLookup(from state: SectionLoadState<[Subject]>) -> [String: String?] {
         guard case let .success(subjects) = state else { return [:] }
-        return Dictionary(uniqueKeysWithValues: subjects.map { ($0.code, $0.colour) })
+        // SEQTA may return multiple classes with the same subject code.
+        return Dictionary(subjects.map { ($0.code, $0.colour) }, uniquingKeysWith: { first, next in
+            first ?? next
+        })
     }
 
     private func filteredLessons(from state: HomeUiState) -> [TimetableLesson] {
