@@ -4,10 +4,7 @@ import SwiftUI
 public struct LearnCalendarSyncView: View {
     @State private var viewModel: LearnCalendarSyncViewModel
     @State private var inlineToast: String?
-    @State private var syncMorphSuccess = false
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.learnMotionProfile) private var motionProfile
-
     public init(viewModel: LearnCalendarSyncViewModel) {
         _viewModel = State(initialValue: viewModel)
     }
@@ -36,32 +33,29 @@ public struct LearnCalendarSyncView: View {
             .listRowBackground(LearnGlassListRowBackground())
 
             Section("Calendar sync") {
-                Toggle("Timetable calendar sync", isOn: Binding(
-                    get: { viewModel.preferences.isEnabled },
-                    set: { viewModel.setEnabled($0) }
-                ))
-                Toggle("Sync automatically", isOn: Binding(
-                    get: { viewModel.preferences.autoSyncEnabled },
-                    set: { viewModel.setAutoSyncEnabled($0) }
-                ))
-                .disabled(!viewModel.preferences.isEnabled)
-                Text("Automatic sync uses iOS Background App Refresh (about daily when enabled). Use Sync now for immediate updates.")
-                    .font(.footnote)
-                    .foregroundStyle(LearnTheme.Colors.secondaryText)
-            }
-            .listRowBackground(LearnGlassListRowBackground())
-
-            Section("What to sync") {
-                Toggle("Timetable lessons", isOn: Binding(
-                    get: { viewModel.preferences.syncTimetable },
-                    set: { viewModel.setSyncTimetable($0) }
-                ))
-                .disabled(!viewModel.preferences.isEnabled)
-                Toggle("Assessment due dates", isOn: Binding(
-                    get: { viewModel.preferences.syncAssessments },
-                    set: { viewModel.setSyncAssessments($0) }
-                ))
-                .disabled(!viewModel.preferences.isEnabled)
+                LearnSwitchDisclosure(
+                    "Timetable calendar sync",
+                    isOn: Binding(
+                        get: { viewModel.preferences.isEnabled },
+                        set: { viewModel.setEnabled($0) }
+                    )
+                ) {
+                    Toggle("Sync automatically", isOn: Binding(
+                        get: { viewModel.preferences.autoSyncEnabled },
+                        set: { viewModel.setAutoSyncEnabled($0) }
+                    ))
+                    Text("Automatic sync uses iOS Background App Refresh (about daily when enabled). Use Sync now for immediate updates.")
+                        .font(.footnote)
+                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                    Toggle("Timetable lessons", isOn: Binding(
+                        get: { viewModel.preferences.syncTimetable },
+                        set: { viewModel.setSyncTimetable($0) }
+                    ))
+                    Toggle("Assessment due dates", isOn: Binding(
+                        get: { viewModel.preferences.syncAssessments },
+                        set: { viewModel.setSyncAssessments($0) }
+                    ))
+                }
             }
             .listRowBackground(LearnGlassListRowBackground())
 
@@ -83,30 +77,18 @@ public struct LearnCalendarSyncView: View {
             }
 
             Section {
-                Button {
-                    Task {
-                        await viewModel.syncNow()
-                        if viewModel.errorMessage == nil {
-                            await LearnMorphSuccessFeedback.run(richAnimations: motionProfile.richAnimations) {
-                                syncMorphSuccess = $0
-                            }
-                        }
+                LearnStatefulCapsuleButton(
+                    title: "Sync now",
+                    successTitle: "Synced",
+                    isEnabled: viewModel.authorizationStatus != .denied && !viewModel.isSyncing
+                ) {
+                    await viewModel.syncNow()
+                    let ok = viewModel.errorMessage == nil
+                    if ok, let message = viewModel.statusMessage ?? viewModel.preferences.lastSyncSummary {
+                        inlineToast = message
                     }
-                } label: {
-                    HStack {
-                        Text("Sync now")
-                        Spacer()
-                        if viewModel.isSyncing {
-                            ProgressView()
-                        } else {
-                            Image(systemName: syncMorphSuccess ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
-                                .font(.body.weight(.semibold))
-                                .contentTransition(.symbolEffect(.replace))
-                                .foregroundStyle(syncMorphSuccess ? Color.green.opacity(0.92) : LearnTheme.Colors.accent)
-                        }
-                    }
+                    return ok
                 }
-                .disabled(viewModel.isSyncing || viewModel.authorizationStatus == .denied)
 
                 if let status = viewModel.statusMessage ?? viewModel.preferences.lastSyncSummary {
                     HStack(alignment: .top, spacing: 8) {

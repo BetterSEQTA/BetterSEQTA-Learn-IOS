@@ -7,6 +7,7 @@ struct LearnQRCodeScannerView: View {
 
     @State private var cameraAuthorized = false
     @State private var permissionDenied = false
+    @State private var scannerGeneration = 0
 
     var body: some View {
         Group {
@@ -23,6 +24,7 @@ struct LearnQRCodeScannerView: View {
                 .frame(maxWidth: .infinity, minHeight: 180)
             } else if cameraAuthorized {
                 LearnQRCodeScannerRepresentable(onCodeScanned: onCodeScanned)
+                    .id(scannerGeneration)
                     .frame(maxWidth: .infinity, minHeight: 220)
                     .clipShape(RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius))
             } else {
@@ -30,17 +32,21 @@ struct LearnQRCodeScannerView: View {
                     .frame(maxWidth: .infinity, minHeight: 180)
             }
         }
-        .task { await requestCameraAccess() }
+        .onAppear {
+            Task { await requestCameraAccess() }
+        }
     }
 
     private func requestCameraAccess() async {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             cameraAuthorized = true
+            scannerGeneration += 1
         case .notDetermined:
             let granted = await AVCaptureDevice.requestAccess(for: .video)
             cameraAuthorized = granted
             permissionDenied = !granted
+            if granted { scannerGeneration += 1 }
         default:
             permissionDenied = true
         }
@@ -54,53 +60,83 @@ private struct LearnQRCodeScannerRepresentable: UIViewRepresentable {
         Coordinator(onCodeScanned: onCodeScanned)
     }
 
-    func makeUIView(context: Context) -> UIView {
-        let container = UIView(frame: .zero)
-        container.backgroundColor = .black
-
-        let session = AVCaptureSession()
-        guard let device = AVCaptureDevice.default(for: .video),
-              let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else {
-            return container
-        }
-        session.addInput(input)
-
-        let output = AVCaptureMetadataOutput()
-        guard session.canAddOutput(output) else { return container }
-        session.addOutput(output)
-        output.setMetadataObjectsDelegate(context.coordinator, queue: DispatchQueue.main)
-        output.metadataObjectTypes = [.qr]
-
-        let preview = AVCaptureVideoPreviewLayer(session: session)
-        preview.videoGravity = .resizeAspectFill
-        container.layer.addSublayer(preview)
-
-        context.coordinator.previewLayer = preview
-        context.coordinator.captureSession = session
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            session.startRunning()
-        }
-        return container
+    func makeUIView(context: Context) -> CameraPreviewView {
+        let view = CameraPreviewView()
+        context.coordinator.attach(to: view)
+        return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.previewLayer?.frame = uiView.bounds
+    func updateUIView(_ uiView: CameraPreviewView, context: Context) {
+        context.coordinator.attach(to: uiView)
     }
 
-    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
-        coordinator.captureSession?.stopRunning()
+    static func dismantleUIView(_ uiView: CameraPreviewView, coordinator: Coordinator) {
+        coordinator.teardown()
     }
 
     final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         let onCodeScanned: (String) -> Void
-        var previewLayer: AVCaptureVideoPreviewLayer?
-        var captureSession: AVCaptureSession?
+        private var captureSession: AVCaptureSession?
+        private var previewLayer: AVCaptureVideoPreviewLayer?
+        private weak var previewView: CameraPreviewView?
         private var didEmit = false
+        private var isConfigured = false
 
         init(onCodeScanned: @escaping (String) -> Void) {
             self.onCodeScanned = onCodeScanned
+        }
+
+        func attach(to view: CameraPreviewView) {
+            previewView = view
+            guard !isConfigured else {
+                previewLayer?.frame = view.bounds
+                startSessionIfNeeded()
+                return
+            }
+            configureSession(on: view)
+        }
+
+        func teardown() {
+            captureSession?.stopRunning()
+            previewLayer?.removeFromSuperlayer()
+            captureSession = nil
+            previewLayer = nil
+            isConfigured = false
+        }
+
+        private func configureSession(on view: CameraPreviewView) {
+            let session = AVCaptureSession()
+            session.sessionPreset = .high
+            guard let device = AVCaptureDevice.default(for: .video),
+                  let input = try? AVCaptureDeviceInput(device: device),
+                  session.canAddInput(input) else {
+                return
+            }
+            session.addInput(input)
+
+            let output = AVCaptureMetadataOutput()
+            guard session.canAddOutput(output) else { return }
+            session.addOutput(output)
+            output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+            output.metadataObjectTypes = [.qr]
+
+            let preview = AVCaptureVideoPreviewLayer(session: session)
+            preview.videoGravity = .resizeAspectFill
+            view.previewLayer = preview
+            view.layer.addSublayer(preview)
+
+            captureSession = session
+            previewLayer = preview
+            isConfigured = true
+            preview.frame = view.bounds
+            startSessionIfNeeded()
+        }
+
+        private func startSessionIfNeeded() {
+            guard let session = captureSession, !session.isRunning else { return }
+            DispatchQueue.global(qos: .userInitiated).async {
+                session.startRunning()
+            }
         }
 
         func metadataOutput(
@@ -116,5 +152,14 @@ private struct LearnQRCodeScannerRepresentable: UIViewRepresentable {
             captureSession?.stopRunning()
             onCodeScanned(value)
         }
+    }
+}
+
+private final class CameraPreviewView: UIView {
+    var previewLayer: AVCaptureVideoPreviewLayer?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer?.frame = bounds
     }
 }

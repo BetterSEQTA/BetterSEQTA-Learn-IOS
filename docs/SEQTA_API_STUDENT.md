@@ -13,7 +13,8 @@ Android reference: `core/network/.../SeqtaStudentApi.kt`, `data/student/StudentR
 | Login / profile | `/seqta/student/login` | `{}` after cookie established |
 | Heartbeat | `/seqta/student/heartbeat` | `{"heartbeat":true}` |
 | Subjects | `/seqta/student/load/subjects` | `{}` |
-| Courses | `/seqta/student/load/courses` | `{}` |
+| Courses (list) | `/seqta/student/load/courses` | `{}` (legacy; prefer per-subject) |
+| Course content | `/seqta/student/load/courses` | `programme`, `metaclass` (strings; see DesQTA `get_course_content`) |
 | Timetable | `/seqta/student/load/timetable` | `from`, `until`, `student` |
 | Upcoming assessments | `/seqta/student/assessment/list/upcoming` | `student` |
 | Past assessments | `/seqta/student/assessment/list/past` | per-subject `programme`, `metaclass`, `student` |

@@ -16,6 +16,7 @@ public protocol StudentRepository: Sendable {
     func getProfile() async -> AppResult<UserProfile>
     func getSubjects() async -> AppResult<[Subject]>
     func getCourses() async -> AppResult<[Course]>
+    func getCourseContent(programme: Int, metaclass: Int) async -> AppResult<CourseContent>
     func getTimetable(from: String?, until: String?) async -> AppResult<[TimetableLesson]>
     func getUpcomingAssessments() async -> AppResult<[Assessment]>
     func getPastAssessments() async -> AppResult<[Assessment]>

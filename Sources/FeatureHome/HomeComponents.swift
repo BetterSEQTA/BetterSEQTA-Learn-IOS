@@ -34,12 +34,30 @@ struct HomeFilterMenus: View {
     let navigation: HomeNavigationCallbacks
 
     var body: some View {
-        HStack(spacing: 12) {
-            subjectMenu
-            browseMenu
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                subjectMenu
+                browseMenu
+                Spacer(minLength: 0)
+            }
+            subjectChipRail
         }
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var subjectChipRail: some View {
+        if case let .success(subjects) = subjectsState, subjects.count > 1 {
+            let chips = ["All"] + subjects.map(\.code)
+            LearnMorphingFilterChips(
+                chips: chips,
+                selection: Binding(
+                    get: { selectedSubjectCode },
+                    set: { code in onSelectSubject(code == "All" || code == nil ? nil : code) }
+                ),
+                defaultChip: "All"
+            )
+        }
     }
 
     @ViewBuilder

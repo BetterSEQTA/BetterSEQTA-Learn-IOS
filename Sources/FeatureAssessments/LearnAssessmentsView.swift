@@ -27,7 +27,7 @@ public struct LearnAssessmentsView: View {
                 items: LearnAssessmentsTab.allCases.map { ($0, $0.rawValue) },
                 selection: viewModel.selectedTab,
                 density: .compact,
-                style: .discrete
+                style: .fluid
             ) { tab in
                 viewModel.selectedTab = tab
             }

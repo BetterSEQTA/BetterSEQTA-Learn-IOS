@@ -4,6 +4,11 @@ import SwiftUI
 
 public struct LearnAssessmentDetailView: View {
     @State private var viewModel: LearnAssessmentDetailViewModel
+    @State private var scrollOffsetY: CGFloat = 0
+    @State private var showDescription = false
+    @State private var showExpectations = false
+    @State private var showCriteria = false
+
     public init(viewModel: LearnAssessmentDetailViewModel) {
         _viewModel = State(initialValue: viewModel)
     }
@@ -20,6 +25,7 @@ public struct LearnAssessmentDetailView: View {
             }
             ScrollView {
                 Group {
+                    LearnScrollOffsetReporter()
                     if viewModel.isLoading {
                         LearnLoadingState(preset: .detailBody)
                     } else if let error = viewModel.errorMessage {
@@ -32,6 +38,12 @@ public struct LearnAssessmentDetailView: View {
                 }
                 .padding(16)
             }
+            .coordinateSpace(name: "learnScroll")
+            .onPreferenceChange(LearnScrollOffsetKey.self) { scrollOffsetY = $0 }
+            .learnScrollIslandChrome(
+                title: viewModel.detail?.title ?? "Assessment",
+                progress: learnScrollProgress(from: scrollOffsetY)
+            )
         }
         .background { LearnScreenBackground() }
         .learnShellNavigationDepth(1)
@@ -98,9 +110,11 @@ public struct LearnAssessmentDetailView: View {
 
             if let description = detail.description, !description.isEmpty {
                 LearnGlassCard {
-                    VStack(alignment: .leading, spacing: 8) {
+                    LearnProgressiveDisclosure(isExpanded: $showDescription) {
                         Text("Description")
                             .font(.headline)
+                            .foregroundStyle(LearnTheme.Colors.primaryText)
+                    } content: {
                         Text(description)
                             .font(.body)
                             .foregroundStyle(LearnTheme.Colors.secondaryText)
@@ -110,9 +124,11 @@ public struct LearnAssessmentDetailView: View {
 
             if !detail.expectations.isEmpty {
                 LearnGlassCard {
-                    VStack(alignment: .leading, spacing: 8) {
+                    LearnProgressiveDisclosure(isExpanded: $showExpectations) {
                         Text("Expectations")
                             .font(.headline)
+                            .foregroundStyle(LearnTheme.Colors.primaryText)
+                    } content: {
                         ForEach(detail.expectations, id: \.self) { item in
                             Text("• \(item)")
                                 .font(.subheadline)
@@ -124,9 +140,11 @@ public struct LearnAssessmentDetailView: View {
 
             if !detail.criteria.isEmpty {
                 LearnGlassCard {
-                    VStack(alignment: .leading, spacing: 12) {
+                    LearnProgressiveDisclosure(isExpanded: $showCriteria) {
                         Text("Criteria")
                             .font(.headline)
+                            .foregroundStyle(LearnTheme.Colors.primaryText)
+                    } content: {
                         ForEach(detail.criteria, id: \.name) { criterion in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(criterion.name)

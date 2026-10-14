@@ -4,6 +4,7 @@ import SwiftUI
 
 public struct LearnMessageDetailView: View {
     @State private var viewModel: LearnMessageDetailViewModel
+    @State private var scrollOffsetY: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
 
     public init(viewModel: LearnMessageDetailViewModel) {
@@ -31,6 +32,7 @@ public struct LearnMessageDetailView: View {
                 } else if let html = viewModel.htmlBody {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
+                            LearnScrollOffsetReporter()
                             if let subtitle = viewModel.summary.subtitle {
                                 Text(subtitle)
                                     .font(.subheadline)
@@ -61,6 +63,12 @@ public struct LearnMessageDetailView: View {
                         }
                         .padding()
                     }
+                    .coordinateSpace(name: "learnScroll")
+                    .onPreferenceChange(LearnScrollOffsetKey.self) { scrollOffsetY = $0 }
+                    .learnScrollIslandChrome(
+                        title: viewModel.summary.title,
+                        progress: learnScrollProgress(from: scrollOffsetY)
+                    )
                 }
             }
             .animation(nil, value: viewModel.isLoading)

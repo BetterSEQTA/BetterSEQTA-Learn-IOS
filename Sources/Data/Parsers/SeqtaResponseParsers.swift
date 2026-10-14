@@ -181,6 +181,15 @@ public enum SeqtaResponseParsers {
         collectCourseRows(payload: payload).compactMap(parseCourseRow)
     }
 
+    public static func parseCourseContent(payload: Any?) -> CourseContent? {
+        guard let object = payload as? JSONObject else { return nil }
+        let title = JSONObjectHelpers.string(object, keys: "t", "title") ?? "Course"
+        let code = JSONObjectHelpers.string(object, keys: "c", "code") ?? ""
+        let overview = plainTextFromCourseDocument(JSONObjectHelpers.string(object, keys: "document"))
+        let topics = weeklyLessonTopics(from: object["w"])
+        return CourseContent(code: code, title: title, overview: overview, lessonTopics: topics)
+    }
+
     public static func parseMessageList(payload: Any?) -> [MessageSummary] {
         collectMessageRows(payload: payload).compactMap(parseMessageRow)
     }
@@ -506,6 +515,7 @@ public enum SeqtaResponseParsers {
             ?? "—"
         let title = JSONObjectHelpers.string(row, keys: "description", "title", "name", "label") ?? subjectCode
         let room = JSONObjectHelpers.string(row, keys: "room", "room_code", "location", "venue")
+        let teacher = JSONObjectHelpers.string(row, keys: "staff", "teacher", "staffName", "employee")
         let id = JSONObjectHelpers.string(row, keys: "uid", "id")
             ?? [date, subjectCode, String(index)].joined(separator: "-")
         return TimetableLesson(
@@ -516,7 +526,37 @@ public enum SeqtaResponseParsers {
             subjectCode: subjectCode,
             title: title,
             room: room,
+            teacherName: teacher,
             colour: nil
         )
+    }
+
+    private static func plainTextFromCourseDocument(_ document: String?) -> String? {
+        guard let document, !document.isEmpty else { return nil }
+        guard let data = document.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? JSONObject,
+              let blocks = json["blocks"] as? [JSONObject] else {
+            let trimmed = document.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        let lines = blocks.compactMap { JSONObjectHelpers.string($0, keys: "text") }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
+    }
+
+    private static func weeklyLessonTopics(from value: Any?) -> [String] {
+        guard let weeks = value as? [Any] else { return [] }
+        var topics: [String] = []
+        for week in weeks {
+            guard let days = week as? [Any] else { continue }
+            for day in days {
+                guard let object = day as? JSONObject,
+                      let topic = JSONObjectHelpers.string(object, keys: "t", "topic", "title") else { continue }
+                let trimmed = topic.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { topics.append(trimmed) }
+            }
+        }
+        return topics
     }
 }

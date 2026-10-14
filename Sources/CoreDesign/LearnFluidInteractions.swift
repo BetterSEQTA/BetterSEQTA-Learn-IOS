@@ -277,7 +277,9 @@ public struct LearnInlineDeleteConfirm: View {
     private let onConfirm: () -> Void
 
     @State private var armed = false
+    @State private var shakePhase: CGFloat = 0
     @Namespace private var pill
+    @Environment(\.learnMotionProfile) private var motionProfile
 
     public init(label: String = "Delete", onConfirm: @escaping () -> Void) {
         self.label = label
@@ -285,8 +287,12 @@ public struct LearnInlineDeleteConfirm: View {
     }
 
     public var body: some View {
-        HStack(spacing: armed ? 10 : 0) {
+        HStack(spacing: armed ? 8 : 0) {
             if armed {
+                Text("Confirm?")
+                    .font(LearnTypography.rowMeta.weight(.semibold))
+                    .foregroundStyle(Color.red.opacity(0.9))
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
                 Button("Cancel") {
                     LearnHaptics.selection()
                     withAnimation(LearnMotion.fluidMorphSpring) { armed = false }
@@ -309,9 +315,11 @@ public struct LearnInlineDeleteConfirm: View {
                 Button {
                     LearnHaptics.selection()
                     withAnimation(LearnMotion.fluidMorphSpring) { armed = true }
+                    runTrashShake()
                 } label: {
                     Image(systemName: "trash")
                         .frame(width: 32, height: 32)
+                        .rotationEffect(.degrees(shakePhase))
                 }
                 .foregroundStyle(.red)
                 .learnPressFeedback(scale: 0.96)
@@ -328,6 +336,101 @@ public struct LearnInlineDeleteConfirm: View {
         }
         .animation(LearnMotion.fluidMorphSpring, value: armed)
         .accessibilityLabel(armed ? "Confirm delete" : label)
+    }
+
+    private func runTrashShake() {
+        guard motionProfile.richAnimations else { return }
+        let steps: [CGFloat] = [-10, 10, -7, 7, -3, 0]
+        for (index, angle) in steps.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.045) {
+                withAnimation(LearnMotion.spatialStandardFast) { shakePhase = angle }
+            }
+        }
+    }
+}
+
+/// Inline second-step confirmation (log out, reset, etc.) without a modal.
+public struct LearnInlineDestructiveConfirm: View {
+    private let idleTitle: String
+    private let confirmTitle: String
+    private let systemImage: String
+    private let onConfirm: () -> Void
+
+    @State private var armed = false
+
+    public init(
+        idleTitle: String,
+        confirmTitle: String = "Confirm",
+        systemImage: String = "rectangle.portrait.and.arrow.right",
+        onConfirm: @escaping () -> Void
+    ) {
+        self.idleTitle = idleTitle
+        self.confirmTitle = confirmTitle
+        self.systemImage = systemImage
+        self.onConfirm = onConfirm
+    }
+
+    public var body: some View {
+        HStack(spacing: armed ? 10 : 0) {
+            if armed {
+                Button("Cancel", role: .cancel) {
+                    LearnHaptics.selection()
+                    withAnimation(LearnMotion.fluidMorphSpring) { armed = false }
+                }
+                .font(LearnTypography.rowBody.weight(.medium))
+                Button(confirmTitle, role: .destructive) {
+                    LearnHaptics.lightImpact()
+                    onConfirm()
+                    withAnimation(LearnMotion.fluidMorphSpring) { armed = false }
+                }
+                .font(LearnTypography.rowBody.weight(.semibold))
+            } else {
+                Button(idleTitle, systemImage: systemImage) {
+                    LearnHaptics.selection()
+                    withAnimation(LearnMotion.fluidMorphSpring) { armed = true }
+                }
+                .foregroundStyle(.red)
+            }
+        }
+        .animation(LearnMotion.fluidMorphSpring, value: armed)
+        .accessibilityLabel(armed ? "Confirm \(idleTitle.lowercased())" : idleTitle)
+    }
+}
+
+/// Master toggle that unfolds dependent controls (switch disclosure).
+public struct LearnSwitchDisclosure<Content: View>: View {
+    private let title: String
+    @Binding private var isOn: Bool
+    private let content: Content
+
+    public init(
+        _ title: String,
+        isOn: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        _isOn = isOn
+        self.content = content()
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Toggle(title, isOn: $isOn)
+                .onChange(of: isOn) { _, on in
+                    if on { LearnHaptics.selection() }
+                }
+            if isOn {
+                content
+                    .padding(.top, 8)
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .opacity
+                        )
+                    )
+            }
+        }
+        .animation(LearnMotion.spatialStandardDefault, value: isOn)
     }
 }
 
@@ -691,21 +794,27 @@ public struct LearnSplitCapsuleButton: View {
 public struct LearnMorphingFilterChips: View {
     private let chips: [String]
     @Binding private var selection: String?
+    private let defaultChip: String?
 
-    public init(chips: [String], selection: Binding<String?>) {
+    public init(chips: [String], selection: Binding<String?>, defaultChip: String? = nil) {
         self.chips = chips
         _selection = selection
+        self.defaultChip = defaultChip
     }
 
     public var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
-                    let active = selection == chip
+                    let active = isActive(chip)
                     Button {
                         LearnHaptics.selection()
                         withAnimation(LearnMotion.spatialStandardDefault) {
-                            selection = active ? nil : chip
+                            if active {
+                                selection = defaultChip
+                            } else {
+                                selection = chip == defaultChip ? defaultChip : chip
+                            }
                         }
                     } label: {
                         Text(chip)
@@ -725,5 +834,12 @@ public struct LearnMorphingFilterChips: View {
             }
             .padding(.horizontal, 2)
         }
+    }
+
+    private func isActive(_ chip: String) -> Bool {
+        if let defaultChip, selection == nil || selection == defaultChip {
+            return chip == defaultChip
+        }
+        return selection == chip
     }
 }

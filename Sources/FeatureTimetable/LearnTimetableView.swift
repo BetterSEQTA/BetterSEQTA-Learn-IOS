@@ -41,7 +41,7 @@ public struct LearnTimetableView: View {
                 items: LearnTimetableDisplayMode.allCases.map { ($0, $0.label) },
                 selection: viewModel.displayMode,
                 density: .compact,
-                style: .discrete
+                style: .fluid
             ) { mode in
                 viewModel.selectDisplayMode(mode)
             }
@@ -101,16 +101,6 @@ public struct LearnTimetableView: View {
 
     private var dayScheduleBody: some View {
         VStack(spacing: 0) {
-            if viewModel.isSelectedDateToday, let spotlight = viewModel.spotlightLesson(now: now) {
-                LearnTimetableSpotlightCard(
-                    lesson: spotlight,
-                    phase: viewModel.phase(for: spotlight, now: now),
-                    minutesUntil: viewModel.minutesUntilStart(of: spotlight, now: now),
-                    compact: true
-                )
-                .padding(.horizontal, LearnLayout.horizontalPadding)
-                .padding(.vertical, 10)
-            }
             LearnDirectionalContent(
                 identity: viewModel.selectedDate,
                 direction: viewModel.dayNavigationDirection
@@ -283,19 +273,20 @@ private struct LearnTimetableSpotlightCard: View {
                     .font(compact ? .body.weight(.semibold) : .title3.weight(.semibold))
                     .foregroundStyle(LearnTheme.Colors.primaryText)
                     .lineLimit(compact ? 1 : 2)
-                if !compact {
-                    Text(lesson.subjectCode)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(accent.opacity(0.95))
-                }
                 if let subline {
                     Text(subline)
                         .font(compact ? .caption : .subheadline)
                         .foregroundStyle(LearnTheme.Colors.secondaryText)
                 }
-                if !compact, let room = lesson.room, !room.isEmpty {
+                if let teacher = lesson.teacherName, !teacher.isEmpty {
+                    Label(teacher, systemImage: "person")
+                        .font(compact ? .caption : .subheadline)
+                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                        .lineLimit(compact ? 1 : 2)
+                }
+                if let room = lesson.room, !room.isEmpty {
                     Label(room, systemImage: "mappin.and.ellipse")
-                        .font(.subheadline)
+                        .font(compact ? .caption : .subheadline)
                         .foregroundStyle(LearnTheme.Colors.secondaryText)
                 }
             }
@@ -392,9 +383,11 @@ private struct LearnTimetableAgendaRow: View {
             Text(lesson.title)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(LearnTheme.Colors.primaryText)
-            Text(lesson.subjectCode)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(accent.opacity(0.95))
+            if let teacher = lesson.teacherName, !teacher.isEmpty {
+                Label(teacher, systemImage: "person")
+                    .font(.caption)
+                    .foregroundStyle(LearnTheme.Colors.secondaryText)
+            }
             if let room = lesson.room, !room.isEmpty {
                 Label(room, systemImage: "mappin.and.ellipse")
                     .font(.caption)

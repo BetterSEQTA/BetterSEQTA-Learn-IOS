@@ -317,6 +317,42 @@ final class SeqtaResponseParsersTests: XCTestCase {
         XCTAssertEqual(lessons[0].room, "B12")
         XCTAssertEqual(lessons[0].fromTime, "09:00:00")
         XCTAssertEqual(lessons[0].untilTime, "09:50:00")
+        XCTAssertNil(lessons[0].teacherName)
+    }
+
+    func testParseTimetableLessonsReadsStaffField() throws {
+        let payload: [String: Any] = [
+            "items": [
+                [
+                    "date": "2026-09-02",
+                    "from": "09:00:00",
+                    "until": "09:50:00",
+                    "code": "ENG",
+                    "description": "English",
+                    "room": "B12",
+                    "staff": "Ms Example",
+                ],
+            ],
+        ]
+        let lessons = SeqtaResponseParsers.parseTimetableLessons(payload: payload)
+        XCTAssertEqual(lessons[0].teacherName, "Ms Example")
+    }
+
+    func testParseCourseContentReadsDesQtaPayload() throws {
+        let document = """
+        {"blocks":[{"text":"Welcome to the course.","type":"unstyled"}],"entityMap":{}}
+        """
+        let payload: [String: Any] = [
+            "c": "AEENG1",
+            "t": "11 ATAR English",
+            "document": document,
+            "w": [[["t": "Week 1 intro"], ["t": "Essay skills"]]],
+        ]
+        let content = SeqtaResponseParsers.parseCourseContent(payload: payload)
+        XCTAssertEqual(content?.code, "AEENG1")
+        XCTAssertEqual(content?.title, "11 ATAR English")
+        XCTAssertEqual(content?.overview, "Welcome to the course.")
+        XCTAssertEqual(content?.lessonTopics, ["Week 1 intro", "Essay skills"])
     }
 
     func testParseTimetableLessonsSkipsRowsMissingRequiredFields() throws {

@@ -96,7 +96,7 @@ private struct LearnNoticesLabelSegments: View {
                 items: items.map { ($0.0, $0.1) },
                 selection: NoticeLabelFilter(id: selectedLabelId),
                 density: .compact,
-                style: .discrete,
+                style: .fluid,
                 onSelect: { onSelect($0.id) }
             )
             .frame(minWidth: UIScreen.main.bounds.width - 32)

@@ -6,12 +6,12 @@ import Observation
 @Observable
 public final class LearnCoursesViewModel {
     public var subjects: [Subject] = []
-    public var courses: [Course] = []
     public var isLoading = false
     public var errorMessage: String?
-    public var selectedSubject: Subject?
 
     private let repository: StudentRepository
+    private var courseCache: [Int: CourseContent] = [:]
+    private var courseLoadTasks: [Int: Task<CourseContent?, Never>] = [:]
 
     public init(repository: StudentRepository) {
         self.repository = repository
@@ -23,24 +23,39 @@ public final class LearnCoursesViewModel {
         errorMessage = nil
         defer { isLoading = false }
 
-        async let subjectsResult = repository.getSubjects()
-        async let coursesResult = repository.getCourses()
-        let subjectsResponse = await subjectsResult
-        let coursesResponse = await coursesResult
-
-        switch subjectsResponse {
+        switch await repository.getSubjects() {
         case .success(let value):
             subjects = value
         case .failure(let error):
             errorMessage = error.localizedDescription
         }
-
-        if case .success(let value) = coursesResponse {
-            courses = value
-        }
     }
 
-    public func courses(for subject: Subject) -> [Course] {
-        courses.filter { $0.subjectCode == subject.code }
+    public func cachedCourse(for subject: Subject) -> CourseContent? {
+        courseCache[subject.id]
+    }
+
+    public func loadCourse(for subject: Subject) async -> CourseContent? {
+        if let cached = courseCache[subject.id] { return cached }
+        if let existing = courseLoadTasks[subject.id] {
+            return await existing.value
+        }
+
+        let task = Task<CourseContent?, Never> {
+            guard let programme = subject.programme, let metaclass = subject.metaclass else {
+                return nil
+            }
+            switch await repository.getCourseContent(programme: programme, metaclass: metaclass) {
+            case .success(let content):
+                courseCache[subject.id] = content
+                return content
+            case .failure:
+                return nil
+            }
+        }
+        courseLoadTasks[subject.id] = task
+        let result = await task.value
+        courseLoadTasks[subject.id] = nil
+        return result
     }
 }

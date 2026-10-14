@@ -53,6 +53,21 @@ public struct Course: Sendable, Equatable, Identifiable, Codable {
     }
 }
 
+/// Per-subject course page from `/seqta/student/load/courses` with `programme` + `metaclass`.
+public struct CourseContent: Sendable, Equatable {
+    public let code: String
+    public let title: String
+    public let overview: String?
+    public let lessonTopics: [String]
+
+    public init(code: String, title: String, overview: String?, lessonTopics: [String]) {
+        self.code = code
+        self.title = title
+        self.overview = overview
+        self.lessonTopics = lessonTopics
+    }
+}
+
 public struct TimetableLesson: Sendable, Equatable, Codable {
     public let id: String
     public let date: String
@@ -61,6 +76,7 @@ public struct TimetableLesson: Sendable, Equatable, Codable {
     public let subjectCode: String
     public let title: String
     public let room: String?
+    public let teacherName: String?
     public let colour: String?
 
     public init(
@@ -71,6 +87,7 @@ public struct TimetableLesson: Sendable, Equatable, Codable {
         subjectCode: String,
         title: String,
         room: String?,
+        teacherName: String? = nil,
         colour: String?
     ) {
         self.id = id
@@ -80,6 +97,7 @@ public struct TimetableLesson: Sendable, Equatable, Codable {
         self.subjectCode = subjectCode
         self.title = title
         self.room = room
+        self.teacherName = teacherName
         self.colour = colour
     }
 }

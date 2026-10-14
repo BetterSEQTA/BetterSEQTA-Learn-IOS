@@ -34,10 +34,7 @@ public struct LearnCoursesView: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .navigationDestination(for: Subject.self) { subject in
-                        LearnCourseDetailView(
-                            subject: subject,
-                            courses: viewModel.courses(for: subject)
-                        )
+                        LearnCourseDetailView(subject: subject, viewModel: viewModel)
                     }
                 }
             }
@@ -65,37 +62,92 @@ private struct LearnSubjectRow: View {
 
 private struct LearnCourseDetailView: View {
     let subject: Subject
-    let courses: [Course]
+    let viewModel: LearnCoursesViewModel
+
+    @State private var content: CourseContent?
+    @State private var isLoading = true
+    @State private var loadFailed = false
 
     var body: some View {
         Group {
-            if courses.isEmpty {
-                LearnEmptyState(
-                    title: "No course items",
-                    message: "SEQTA did not return course modules for \(subject.code)."
-                )
-            } else {
-                List(courses) { course in
-                    LearnGlassCard {
-                        Text(course.title)
-                            .foregroundStyle(LearnTheme.Colors.primaryText)
+            if isLoading {
+                LearnLoadingState(preset: .detailBody)
+            } else if let content {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        LearnGlassCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(content.title)
+                                    .font(.title2.weight(.bold))
+                                    .foregroundStyle(LearnTheme.Colors.primaryText)
+                                if !content.code.isEmpty, content.code != subject.code {
+                                    Text(content.code)
+                                        .font(.subheadline)
+                                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                                }
+                            }
+                        }
+                        if let overview = content.overview, !overview.isEmpty {
+                            LearnGlassCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Overview")
+                                        .font(.headline)
+                                    Text(overview)
+                                        .font(.body)
+                                        .foregroundStyle(LearnTheme.Colors.secondaryText)
+                                        .learnReadableBody()
+                                }
+                            }
+                        }
+                        if !content.lessonTopics.isEmpty {
+                            LearnGlassCard {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Lessons")
+                                        .font(.headline)
+                                    ForEach(Array(content.lessonTopics.enumerated()), id: \.offset) { index, topic in
+                                        Text("• \(topic)")
+                                            .font(.subheadline)
+                                            .foregroundStyle(LearnTheme.Colors.secondaryText)
+                                            .learnListEntrance(index: index)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    .listRowBackground(Color.clear)
+                    .padding(16)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
+            } else {
+                LearnEmptyState(
+                    title: "Could not load course",
+                    message: loadFailed
+                        ? "SEQTA did not return course content for \(subject.title). Try again later."
+                        : "This subject is missing programme or class identifiers required by SEQTA."
+                )
             }
         }
         .background { LearnScreenBackground() }
         .learnShellNavigationDepth(1)
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .top) {
-            LearnInlineNavBar(title: subject.code) {
+            LearnInlineNavBar(title: subject.title) {
                 LearnCopyMorphIconButton(
                     text: "\(subject.code)\n\(subject.title)",
                     accessibilityLabel: "Copy subject details"
                 )
             }
+        }
+        .task {
+            if let cached = viewModel.cachedCourse(for: subject) {
+                content = cached
+                isLoading = false
+                return
+            }
+            isLoading = true
+            loadFailed = false
+            let loaded = await viewModel.loadCourse(for: subject)
+            content = loaded
+            loadFailed = loaded == nil && subject.programme != nil && subject.metaclass != nil
+            isLoading = false
         }
     }
 }

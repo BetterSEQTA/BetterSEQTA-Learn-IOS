@@ -73,7 +73,7 @@ public struct LearnMessagesView: View {
             items: MessageFolder.allCases.map { ($0, $0.label) },
             selection: viewModel.selectedFolder,
             density: .compact,
-            style: .discrete
+            style: .fluid
         ) { folder in
             viewModel.selectFolder(folder)
         }

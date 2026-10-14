@@ -30,7 +30,7 @@ Aligned with [Apple HIG Components](https://developer.apple.com/design/human-int
 | HTML body | `LearnHTMLContentView` |
 | Loading / empty / error | `LearnLoadingState`, `LearnEmptyState`, `LearnErrorBanner` |
 | Press / list entrance | `learnRowPress`, `learnListEntrance` |
-| Fluid interactions | `LearnFluidInteractions` — copy/success morph (`LearnCopyMorphButton`, `LearnCopyMorphIconButton`, `LearnMorphSuccessFeedback`), action icons, inline delete, timed undo |
+| Fluid interactions | `LearnFluidInteractions` — copy/success morph, stateful capsule (`LearnStatefulCapsuleButton`), morphing filter chips, progressive disclosure, switch disclosure, inline delete/confirm (`LearnInlineDeleteConfirm`, `LearnInlineDestructiveConfirm`), timed undo |
 | Scroll island | `LearnScrollOffsetReporter`, `learnScrollIslandChrome` |
 | Inline toast | `learnInlineToast` |
 

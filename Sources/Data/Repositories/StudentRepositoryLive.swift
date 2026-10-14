@@ -47,6 +47,23 @@ public struct StudentRepositoryLive: StudentRepository, Sendable {
         }
     }
 
+    public func getCourseContent(programme: Int, metaclass: Int) async -> AppResult<CourseContent> {
+        await safeCall {
+            let session = try requireSession()
+            let client = SeqtaStudentClient(session: session)
+            let body: [String: any Sendable] = [
+                "programme": String(programme),
+                "metaclass": String(metaclass),
+            ]
+            let (data, _) = try await client.post(.loadCourses, body: body)
+            let payload = try JSONObjectHelpers.seqtaPayload(from: data)
+            guard let content = SeqtaResponseParsers.parseCourseContent(payload: payload) else {
+                throw RepositoryError.parseFailed("course content")
+            }
+            return content
+        }
+    }
+
     public func getTimetable(from: String?, until: String?) async -> AppResult<[TimetableLesson]> {
         await safeCall {
             let session = try requireSession()

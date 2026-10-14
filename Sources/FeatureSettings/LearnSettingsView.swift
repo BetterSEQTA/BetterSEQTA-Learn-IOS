@@ -4,7 +4,6 @@ import SwiftUI
 
 public struct LearnSettingsView: View {
     @State private var viewModel: LearnSettingsViewModel
-    @State private var showLogoutConfirm = false
     private let onLogout: () -> Void
     private let onCalendarSyncTap: (() -> Void)?
 
@@ -48,35 +47,26 @@ public struct LearnSettingsView: View {
             .listRowBackground(LearnGlassListRowBackground())
 
             Section {
-                Button(role: .destructive) {
-                    showLogoutConfirm = true
-                } label: {
-                    if viewModel.isLoggingOut {
+                if viewModel.isLoggingOut {
+                    HStack {
+                        Spacer()
                         ProgressView()
-                    } else {
-                        Text("Log out")
+                        Spacer()
+                    }
+                } else {
+                    LearnInlineDestructiveConfirm(idleTitle: "Log out") {
+                        Task {
+                            await viewModel.logout()
+                            onLogout()
+                        }
                     }
                 }
-                .disabled(viewModel.isLoggingOut)
             }
             .listRowBackground(LearnGlassListRowBackground())
         }
         .learnInsetSettingsList()
         .learnShellNavigationDepth(0)
         .toolbar(.hidden, for: .navigationBar)
-        .confirmationDialog(
-            "Log out of BetterSEQTA Learn?",
-            isPresented: $showLogoutConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Log out", role: .destructive) {
-                Task {
-                    await viewModel.logout()
-                    onLogout()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
         .onAppear { viewModel.refreshFromSession() }
     }
 }

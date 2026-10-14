@@ -119,10 +119,10 @@ struct LearnTimetableBlock: View {
                     .foregroundStyle(LearnTheme.Colors.primaryText)
                     .lineLimit(3)
                     .minimumScaleFactor(0.85)
-                if lesson.durationMinutes >= 35 {
-                    Text(lesson.subjectCode)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(accent.opacity(0.95))
+                if let teacher = lesson.teacherName, !teacher.isEmpty, lesson.durationMinutes >= 35 {
+                    Text(teacher)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(LearnTheme.Colors.secondaryText)
                         .lineLimit(1)
                 }
                 if let room = lesson.room, !room.isEmpty, lesson.durationMinutes >= 50 {
