@@ -34,9 +34,17 @@ with Xcode 27.0. Its first cloud build succeeded on the setup branch on
 14 October 2026. Local simulator builds and an unsigned Release archive also
 passed with Xcode 27.0.
 
-This workflow checks compilation; it does not distribute a TestFlight build.
-Configure an Archive action and distribution separately when release assets and
-App Store validation requirements are ready.
+The workflow runs automatically on pushes to `main`, with manual builds available
+for any branch. Its Archive action prepares the app for App Store Connect, and a
+TestFlight Internal Testing post-action distributes successful archives to the
+private `Testers` group. Internal testers receive builds after Apple processing,
+without external beta review. Public-link testing requires a separate external
+group and Apple's beta review approval.
+
+The app includes the existing BetterSEQTA icon. Its export-compliance declaration
+specifies no non-exempt encryption: networking and credential storage use Apple's
+URLSession/WebKit and Keychain APIs, with no bundled cryptography libraries.
+Reassess that declaration if encryption dependencies change.
 
 ## Initial Cloud setup (for a new product)
 
