@@ -26,7 +26,19 @@ their existing values; they do not need to match the App Store bundle ID.
 The separate xtool configuration keeps its original `org.betterseqta.learn`
 identity. An xtool build and an Xcode build are therefore separate app installs.
 
-## Initial Cloud setup
+## Active workflow
+
+Xcode Cloud is connected to this repository and the existing BetterLearn app.
+The `Default` workflow uses the `BetterSEQTALearn` scheme and an iOS Build action
+with Xcode 27.0. Its first cloud build succeeded on the setup branch on
+14 October 2026. Local simulator builds and an unsigned Release archive also
+passed with Xcode 27.0.
+
+This workflow checks compilation; it does not distribute a TestFlight build.
+Configure an Archive action and distribution separately when release assets and
+App Store validation requirements are ready.
+
+## Initial Cloud setup (for a new product)
 
 Apple requires the first workflow to be configured from Xcode:
 
