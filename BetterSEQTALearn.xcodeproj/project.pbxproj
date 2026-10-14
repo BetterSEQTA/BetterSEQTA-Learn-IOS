@@ -32,6 +32,7 @@
 		D0A95ADF1948FA3F8D71F2F1 /* Domain in Frameworks */ = {isa = PBXBuildFile; productRef = 0B05C0CB37CCCBE1FA3196E4 /* Domain */; };
 		D40277D842636F3BC815B569 /* FeatureMessages in Frameworks */ = {isa = PBXBuildFile; productRef = 7958BEE437C1F291B92EE9EE /* FeatureMessages */; };
 		D6B8E5FAC167416E782AAD56 /* CoreDesign in Frameworks */ = {isa = PBXBuildFile; productRef = BB1792ECBED8DB4D942E55C0 /* CoreDesign */; };
+		D80406DE4BA19434AC03A73E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51CD6FD4AAF49957457A601D /* Assets.xcassets */; };
 		DB0A58693122AC9D53132DE2 /* LearnNextLessonSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E483A2ABAE498723CAC9E19 /* LearnNextLessonSnapshot.swift */; };
 		DBD5CFCDC8264BEC66E850A1 /* LearnAppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D7D790B43DBA3A22CDE95D /* LearnAppDependencies.swift */; };
 		EEB3F1FB4373993B5466F661 /* BetterSEQTALearnApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC33B0E15C4E2FB5ADDD35AE /* BetterSEQTALearnApp.swift */; };
@@ -70,6 +71,7 @@
 		3BCD33A8053778CE81603574 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3CC57DF4051B670C9B3FE40D /* LearnTimelineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnTimelineWidget.swift; sourceTree = "<group>"; };
 		49D7D790B43DBA3A22CDE95D /* LearnAppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnAppDependencies.swift; sourceTree = "<group>"; };
+		51CD6FD4AAF49957457A601D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		61A92791AAE890706DBEBD2A /* ShellRoutes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellRoutes.swift; sourceTree = "<group>"; };
 		747BDA1639138F24B48BF300 /* LearnShellDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnShellDrawer.swift; sourceTree = "<group>"; };
 		77BAA042DCE142D7E8BC13AF /* AppLaunchLoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchLoadingOverlay.swift; sourceTree = "<group>"; };
@@ -156,9 +158,18 @@
 			children = (
 				265424E9BCEA47D47521A0C2 /* Extensions */,
 				E24E1A41B49DA8070CDFEE70 /* Packages */,
+				C81716399FE67285FF596059 /* Resources */,
 				D47B71DB27C874A999689664 /* Sources */,
 				8064E2B66B0B873FA75F6840 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		C81716399FE67285FF596059 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				51CD6FD4AAF49957457A601D /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		D138C9479432527E7D02C895 /* LearnWidget */ = {
@@ -215,6 +226,7 @@
 			buildConfigurationList = BC3EFA3E16059019DE1A258E /* Build configuration list for PBXNativeTarget "BetterSEQTALearn" */;
 			buildPhases = (
 				429454AA593C551C5F0CAB24 /* Sources */,
+				D3065BAECB7034FF81BF36AF /* Resources */,
 				F4EBACBF9D87DD4A02646307 /* Frameworks */,
 				2CE10A13E1E46D492D3B343D /* Embed Foundation Extensions */,
 			);
@@ -287,6 +299,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D3065BAECB7034FF81BF36AF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D80406DE4BA19434AC03A73E /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		25B5C210FC4C6A9B799B9471 /* Sources */ = {

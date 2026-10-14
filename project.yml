@@ -21,9 +21,11 @@ targets:
     platform: iOS
     sources:
       - Sources/BetterSEQTALearnApp
+      - Resources/Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sethburkart.BetterLearn
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
