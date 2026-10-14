@@ -14,6 +14,7 @@ Tracking and architecture docs for the Swift/SwiftUI port of [BetterSEQTA Learn 
 | [DESIGN_LANGUAGE.md](DESIGN_LANGUAGE.md) | Glass, motion, components |
 | [SUBAGENT_ORCHESTRATION.md](SUBAGENT_ORCHESTRATION.md) | Parallel agent rules |
 | [QA_SCHOOL_REDACTED.md](QA_SCHOOL_REDACTED.md) | Manual QA script (no secrets) |
+| [XCODE_CLOUD.md](XCODE_CLOUD.md) | Native Xcode project, signing, and Xcode Cloud onboarding |
 | [WIDGET_XTOOL.md](WIDGET_XTOOL.md) | WidgetKit extension via xtool `appex` |
 | [AGENT_STATUS.md](AGENT_STATUS.md) | Agent handoff log |
 

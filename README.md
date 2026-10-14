@@ -13,4 +13,11 @@ xtool dev
 ./scripts/verify-swift-tests.sh
 ```
 
-Bundle ID: `org.betterseqta.learn`.
+## Xcode / Xcode Cloud
+
+Open `BetterSEQTALearn.xcodeproj` and select the `BetterSEQTALearn` scheme.
+See [Xcode Cloud setup](docs/XCODE_CLOUD.md) for signing, cloud onboarding, and
+local build commands. The Xcode app uses `com.sethburkart.BetterLearn` for the
+existing BetterLearn App Store Connect record.
+
+The xtool bundle ID remains `org.betterseqta.learn`.

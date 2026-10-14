@@ -17,6 +17,11 @@ Tests/Fixtures/live/
 xtool/
 .xtool-tmp/
 *.xcodeproj/
+!BetterSEQTALearn.xcodeproj/
+BetterSEQTALearn.xcodeproj/*
+!BetterSEQTALearn.xcodeproj/project.pbxproj
+!BetterSEQTALearn.xcodeproj/xcshareddata/
+xcuserdata/
 *.xcworkspace/
 DerivedData/
 Package.resolved

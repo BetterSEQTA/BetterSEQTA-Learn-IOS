@@ -1,0 +1,81 @@
+name: BetterSEQTALearn
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    iOS: '17.0'
+  createIntermediateGroups: true
+packages:
+  LearnModules:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    MARKETING_VERSION: '1.0'
+    CURRENT_PROJECT_VERSION: '1'
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 5949S6UQCX
+    TARGETED_DEVICE_FAMILY: '1,2'
+targets:
+  BetterSEQTALearn:
+    type: application
+    platform: iOS
+    sources:
+      - Sources/BetterSEQTALearnApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sethburkart.BetterLearn
+        INFOPLIST_FILE: Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        CODE_SIGN_ENTITLEMENTS: BetterSEQTALearn.entitlements
+    dependencies:
+      - package: LearnModules
+        products:
+          - CoreCommon
+          - CoreDesign
+          - CoreSession
+          - Domain
+          - Data
+          - FeatureAuth
+          - FeatureHome
+          - FeatureTimetable
+          - FeatureCourses
+          - FeatureAssessments
+          - FeatureMessages
+          - FeatureNotices
+          - FeaturePortals
+          - FeatureSettings
+          - FeatureNotifications
+          - FeatureCalendarSync
+      - target: LearnWidgetExtension
+        embed: true
+  LearnWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Extensions/LearnWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sethburkart.BetterLearn.widget
+        INFOPLIST_FILE: LearnWidget-Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Next lesson
+        CODE_SIGN_ENTITLEMENTS: LearnWidget.entitlements
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: LearnModules
+        products:
+          - CoreDesign
+          - Domain
+schemes:
+  BetterSEQTALearn:
+    build:
+      targets:
+        BetterSEQTALearn: all
+    run:
+      config: Debug
+    analyze:
+      config: Debug
+    archive:
+      config: Release
