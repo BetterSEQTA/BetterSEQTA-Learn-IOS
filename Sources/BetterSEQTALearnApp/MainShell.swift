@@ -329,7 +329,7 @@ struct MainShell: View {
                     LearnTimetableView(viewModel: timetableViewModel)
                 case .courses:
                     LearnCoursesView(viewModel: coursesViewModel)
-                case .tasks:
+                case .assessments:
                     LearnAssessmentsView(viewModel: assessmentsViewModel)
                 case .messages:
                     LearnMessagesView(
@@ -408,11 +408,11 @@ struct MainShell: View {
             onCoursesClick: { Task { @MainActor in navigateToTab(.courses) } },
             onMessagesClick: { Task { @MainActor in navigateToTab(.messages) } },
             onTimetableClick: { Task { @MainActor in navigateToTab(.timetable) } },
-            onAssessmentsClick: { Task { @MainActor in navigateToTab(.tasks) } },
+            onAssessmentsClick: { Task { @MainActor in navigateToTab(.assessments) } },
             onAssessmentClick: { assessment in
                 Task { @MainActor in
                     assessmentsViewModel.openAssessment(assessment)
-                    navigateToTab(.tasks)
+                    navigateToTab(.assessments)
                 }
             }
         )

@@ -14,9 +14,27 @@ public final class LearnNoticesViewModel {
 
     private let repository: StudentRepository
     private let calendar = Calendar.current
+    nonisolated(unsafe) private var cacheListenerTask: Task<Void, Never>?
 
     public init(repository: StudentRepository) {
         self.repository = repository
+        cacheListenerTask = StudentCacheUpdateListener.start(prefixes: ["notices."]) { [weak self] in
+            await self?.hydrateFromCache()
+        }
+    }
+
+    deinit {
+        cacheListenerTask?.cancel()
+    }
+
+    private func hydrateFromCache() async {
+        let dateKey = StudentCacheKey.notices(date: formattedDate(selectedDate)).storageKey
+        if let cached: [Notice] = await repository.cachedValue(dateKey) {
+            notices = cached
+        }
+        if let cached: [NoticeLabel] = await repository.cachedValue(StudentCacheKey.noticeLabels.storageKey) {
+            labels = cached
+        }
     }
 
     public var filteredNotices: [Notice] {
@@ -26,7 +44,8 @@ public final class LearnNoticesViewModel {
 
     public func load() async {
         guard !isLoading else { return }
-        isLoading = true
+        await hydrateFromCache()
+        isLoading = notices.isEmpty && labels.isEmpty
         errorMessage = nil
         defer { isLoading = false }
 
@@ -67,6 +86,7 @@ public final class LearnNoticesViewModel {
     }
 
     private func loadNoticesOnly() async {
+        await hydrateFromCache()
         switch await repository.getNotices(date: formattedDate(selectedDate)) {
         case .success(let value):
             notices = value

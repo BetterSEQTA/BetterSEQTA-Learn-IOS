@@ -1,3 +1,4 @@
+import CoreDesign
 import Domain
 import Foundation
 import Observation
@@ -32,7 +33,13 @@ public final class LearnMessageDetailViewModel {
 
     public func load() async {
         guard !isLoading else { return }
-        isLoading = true
+        let cacheKey = StudentCacheKey.messageDetail(id: summary.id).storageKey
+        if let cached: MessageDetail = await repository.cachedValue(cacheKey) {
+            htmlBody = cached.htmlBody
+            attachments = cached.attachments
+            isStarred = cached.starred
+        }
+        isLoading = htmlBody == nil
         errorMessage = nil
         defer { isLoading = false }
 
@@ -87,7 +94,7 @@ public final class LearnMessageDetailViewModel {
 
         switch await repository.downloadMessageAttachment(uuid: attachment.uuid) {
         case .success(let data):
-            let opened = LearnMessageAttachmentPresenter.present(
+            let opened = LearnSeqtaFilePresenter.present(
                 data: data,
                 filename: attachment.filename,
                 mimetype: attachment.mimetype

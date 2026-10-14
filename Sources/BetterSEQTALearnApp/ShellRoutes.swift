@@ -4,7 +4,7 @@ enum ShellTab: Hashable, CaseIterable {
     case home
     case timetable
     case courses
-    case tasks
+    case assessments
     case messages
 
     var title: String {
@@ -12,7 +12,7 @@ enum ShellTab: Hashable, CaseIterable {
         case .home: "Home"
         case .timetable: "Timetable"
         case .courses: "Courses"
-        case .tasks: "Tasks"
+        case .assessments: "Assessments"
         case .messages: "Messages"
         }
     }
@@ -22,7 +22,7 @@ enum ShellTab: Hashable, CaseIterable {
         case .home: "house"
         case .timetable: "calendar"
         case .courses: "book"
-        case .tasks: "doc.text"
+        case .assessments: "doc.text"
         case .messages: "envelope"
         }
     }

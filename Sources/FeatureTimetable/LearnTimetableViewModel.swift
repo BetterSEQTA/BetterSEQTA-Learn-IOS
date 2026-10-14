@@ -34,9 +34,26 @@ public final class LearnTimetableViewModel {
 
     private let repository: StudentRepository
     private let calendar = Calendar.current
+    nonisolated(unsafe) private var cacheListenerTask: Task<Void, Never>?
 
     public init(repository: StudentRepository) {
         self.repository = repository
+        cacheListenerTask = StudentCacheUpdateListener.start(prefixes: ["timetable."]) { [weak self] in
+            await self?.hydrateFromCache()
+        }
+    }
+
+    deinit {
+        cacheListenerTask?.cancel()
+    }
+
+    private func hydrateFromCache() async {
+        let day = Self.isoDay(selectedDate)
+        let key = StudentCacheKey.timetable(from: day, until: day).storageKey
+        guard let cached: [TimetableLesson] = await repository.cachedValue(key) else { return }
+        lessons = cached
+            .filter { $0.date == day }
+            .sorted { ($0.fromTime ?? "") < ($1.fromTime ?? "") }
     }
 
     public var isSelectedDateToday: Bool {
@@ -94,7 +111,8 @@ public final class LearnTimetableViewModel {
 
     public func load() async {
         guard !isLoading else { return }
-        isLoading = true
+        await hydrateFromCache()
+        isLoading = lessons.isEmpty
         errorMessage = nil
         defer { isLoading = false }
         await fetchDay()
@@ -135,6 +153,7 @@ public final class LearnTimetableViewModel {
 
     private func fetchDay() async {
         let day = Self.isoDay(selectedDate)
+        await hydrateFromCache()
         let result = await repository.getTimetable(from: day, until: day)
         switch result {
         case .success(let items):

@@ -23,7 +23,7 @@ struct LearnShellDrawer: View {
             }
 
             Section {
-                ForEach(Array(ShellTab.allCases.enumerated()), id: \.element) { index, tab in
+                ForEach(ShellTab.allCases, id: \.self) { tab in
                     sidebarRow(
                         title: tab.title,
                         systemImage: tab.systemImage,
@@ -33,7 +33,6 @@ struct LearnShellDrawer: View {
                         LearnHaptics.selection()
                         onSelectTab(tab)
                     }
-                    .learnListEntrance(index: index)
                 }
             }
 
@@ -100,8 +99,9 @@ struct LearnShellDrawer: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: 12) {
                 Label(title, systemImage: systemImage)
+                    .labelStyle(.titleAndIcon)
                 Spacer(minLength: 0)
                 if let badge, badge > 0 {
                     Text("\(min(badge, 99))")
@@ -109,8 +109,11 @@ struct LearnShellDrawer: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 12))
         .listRowBackground(
             selected ? LearnTheme.Colors.accent.opacity(0.14) : nil
         )

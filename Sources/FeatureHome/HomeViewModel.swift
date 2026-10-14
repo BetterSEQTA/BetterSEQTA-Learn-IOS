@@ -12,6 +12,7 @@ public final class HomeViewModel: ObservableObject {
 
     private let studentRepository: StudentRepository
     private let launchGate: HomeLaunchGate
+    nonisolated(unsafe) private var cacheListenerTask: Task<Void, Never>?
     private var sectionsCompletedThisRefresh = 0
     private var sectionsTotalThisRefresh = 4
     private let isoDayFormatter: DateFormatter = {
@@ -26,7 +27,50 @@ public final class HomeViewModel: ObservableObject {
     public init(studentRepository: StudentRepository, launchGate: HomeLaunchGate) {
         self.studentRepository = studentRepository
         self.launchGate = launchGate
+        cacheListenerTask = StudentCacheUpdateListener.start(
+            prefixes: ["subjects", "timetable.", "assessments.", "notices.", "profile"]
+        ) { [weak self] in
+            await self?.applyCacheToHomeState()
+        }
         refresh(includeWarmup: true)
+    }
+
+    deinit {
+        cacheListenerTask?.cancel()
+    }
+
+    private func applyCacheToHomeState() async {
+        let isoDate = isoDayFormatter.string(from: uiState.selectedDate)
+        if let profile: UserProfile = await studentRepository.cachedValue(StudentCacheKey.profile.storageKey) {
+            let trimmed = profile.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            uiState.displayName = trimmed.isEmpty ? profile.userName : trimmed
+        }
+        if let subjects: [Subject] = await studentRepository.cachedValue(StudentCacheKey.subjects.storageKey) {
+            uiState.subjects = .success(subjects)
+        }
+        let timetableKey = StudentCacheKey.timetable(from: isoDate, until: isoDate).storageKey
+        if let lessons: [TimetableLesson] = await studentRepository.cachedValue(timetableKey) {
+            uiState.lessons = .success(Self.sortedLessons(lessons.filter { $0.date == isoDate }))
+        }
+        if let assessments: [Assessment] = await studentRepository.cachedValue(
+            StudentCacheKey.assessmentsUpcoming.storageKey
+        ) {
+            let subjectCodes: [String]
+            if case let .success(subjects) = uiState.subjects {
+                subjectCodes = subjects.map(\.code)
+            } else {
+                subjectCodes = []
+            }
+            uiState.assessments = .success(
+                assessments
+                    .filter { subjectCodes.isEmpty || subjectCodes.contains($0.subjectCode) }
+                    .sorted { ($0.dueDate ?? "") < ($1.dueDate ?? "") }
+            )
+        }
+        let noticesKey = StudentCacheKey.notices(date: isoDate).storageKey
+        if let notices: [Notice] = await studentRepository.cachedValue(noticesKey) {
+            uiState.notices = .success(notices)
+        }
     }
 
     public func refresh(includeWarmup: Bool = false) {
@@ -63,7 +107,12 @@ public final class HomeViewModel: ObservableObject {
         Task {
             let date = uiState.selectedDate
             let isoDate = isoDayFormatter.string(from: date)
-            uiState.lessons = .loading
+            let timetableKey = StudentCacheKey.timetable(from: isoDate, until: isoDate).storageKey
+            if let cached: [TimetableLesson] = await studentRepository.cachedValue(timetableKey) {
+                uiState.lessons = .success(Self.sortedLessons(cached.filter { $0.date == isoDate }))
+            } else {
+                uiState.lessons = .loading
+            }
             let result = await studentRepository.getTimetable(from: isoDate, until: isoDate)
             uiState.lessons = result.toSectionState([]) { lessons in
                 Self.sortedLessons(lessons.filter { $0.date == isoDate })
@@ -75,6 +124,8 @@ public final class HomeViewModel: ObservableObject {
         let date = uiState.selectedDate
         let isoDate = isoDayFormatter.string(from: date)
         let isPullRefresh = !uiState.isInitialLoad && !includeWarmup
+
+        await applyCacheToHomeState()
 
         uiState.isRefreshing = isPullRefresh
         if !isPullRefresh {

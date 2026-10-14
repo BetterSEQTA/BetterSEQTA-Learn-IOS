@@ -18,12 +18,32 @@ public final class LearnMessagesViewModel {
 
     private var listOffset = 0
     private var searchReloadTask: Task<Void, Never>?
+    nonisolated(unsafe) private var cacheListenerTask: Task<Void, Never>?
     private let repository: StudentRepository
 
     public var studentRepository: StudentRepository { repository }
 
     public init(repository: StudentRepository) {
         self.repository = repository
+        cacheListenerTask = StudentCacheUpdateListener.start(prefixes: ["messages."]) { [weak self] in
+            await self?.hydrateFromCache()
+        }
+    }
+
+    deinit {
+        cacheListenerTask?.cancel()
+    }
+
+    private func hydrateFromCache() async {
+        let key = StudentCacheKey.messages(
+            folder: selectedFolder.rawValue,
+            search: searchQuery,
+            offset: 0
+        ).storageKey
+        guard let cached: [MessageSummary] = await repository.cachedValue(key) else { return }
+        messages = cached
+        listOffset = cached.count
+        hasMore = cached.count >= Self.pageSize
     }
 
     public var filteredMessages: [MessageSummary] { messages }
@@ -52,7 +72,8 @@ public final class LearnMessagesViewModel {
 
     public func load() async {
         guard !isLoading else { return }
-        isLoading = true
+        await hydrateFromCache()
+        isLoading = messages.isEmpty
         errorMessage = nil
         listOffset = 0
         defer { isLoading = false }

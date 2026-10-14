@@ -73,49 +73,7 @@ private struct LearnCourseDetailView: View {
             if isLoading {
                 LearnLoadingState(preset: .detailBody)
             } else if let content {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        LearnGlassCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(content.title)
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(LearnTheme.Colors.primaryText)
-                                if !content.code.isEmpty, content.code != subject.code {
-                                    Text(content.code)
-                                        .font(.subheadline)
-                                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                                }
-                            }
-                        }
-                        if let overview = content.overview, !overview.isEmpty {
-                            LearnGlassCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Overview")
-                                        .font(.headline)
-                                    Text(overview)
-                                        .font(.body)
-                                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                                        .learnReadableBody()
-                                }
-                            }
-                        }
-                        if !content.lessonTopics.isEmpty {
-                            LearnGlassCard {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Text("Lessons")
-                                        .font(.headline)
-                                    ForEach(Array(content.lessonTopics.enumerated()), id: \.offset) { index, topic in
-                                        Text("• \(topic)")
-                                            .font(.subheadline)
-                                            .foregroundStyle(LearnTheme.Colors.secondaryText)
-                                            .learnListEntrance(index: index)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(16)
-                }
+                LearnCourseContentScreen(subject: subject, content: content, viewModel: viewModel)
             } else {
                 LearnEmptyState(
                     title: "Could not load course",
@@ -129,12 +87,7 @@ private struct LearnCourseDetailView: View {
         .learnShellNavigationDepth(1)
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .top) {
-            LearnInlineNavBar(title: subject.title) {
-                LearnCopyMorphIconButton(
-                    text: "\(subject.code)\n\(subject.title)",
-                    accessibilityLabel: "Copy subject details"
-                )
-            }
+            LearnInlineNavBar(title: subject.title)
         }
         .task {
             if let cached = viewModel.cachedCourse(for: subject) {

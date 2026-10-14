@@ -2,14 +2,15 @@ import Foundation
 import UIKit
 import UniformTypeIdentifiers
 
-private final class LearnMessageAttachmentInteractionDelegate: NSObject, UIDocumentInteractionControllerDelegate {}
+private final class LearnSeqtaFileInteractionDelegate: NSObject, UIDocumentInteractionControllerDelegate {}
 
+/// Presents downloaded SEQTA file bytes via the system open-in menu (messages, course resources, etc.).
 @MainActor
-enum LearnMessageAttachmentPresenter {
-    private static let interactionDelegate = LearnMessageAttachmentInteractionDelegate()
+public enum LearnSeqtaFilePresenter {
+    private static let interactionDelegate = LearnSeqtaFileInteractionDelegate()
     private static var activeController: UIDocumentInteractionController?
 
-    static func present(data: Data, filename: String, mimetype: String) -> Bool {
+    public static func present(data: Data, filename: String, mimetype: String) -> Bool {
         let safeName = filename.replacingOccurrences(of: "/", with: "_")
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(safeName)
         do {

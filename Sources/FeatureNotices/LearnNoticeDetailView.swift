@@ -36,12 +36,11 @@ public struct LearnNoticeDetailView: View {
             .background { LearnScreenBackground() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    LearnCopyMorphButton(text: notice.title, accessibilityLabel: "Copy notice title")
-                    if !notice.plainTextContents.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ToolbarItem(placement: .topBarLeading) {
+                    if !noticeCopyText.isEmpty {
                         LearnCopyMorphIconButton(
-                            text: notice.plainTextContents,
-                            accessibilityLabel: "Copy notice body"
+                            text: noticeCopyText,
+                            accessibilityLabel: "Copy notice"
                         )
                     }
                 }
@@ -51,6 +50,12 @@ public struct LearnNoticeDetailView: View {
                 }
             }
         }
+    }
+
+    private var noticeCopyText: String {
+        let body = notice.plainTextContents.trimmingCharacters(in: .whitespacesAndNewlines)
+        if body.isEmpty { return notice.title }
+        return "\(notice.title)\n\n\(body)"
     }
 
     private var header: some View {

@@ -21,9 +21,29 @@ public final class LearnAssessmentsViewModel {
     public var assessmentToOpen: Assessment?
 
     private let repository: StudentRepository
+    nonisolated(unsafe) private var cacheListenerTask: Task<Void, Never>?
 
     public init(repository: StudentRepository) {
         self.repository = repository
+        cacheListenerTask = StudentCacheUpdateListener.start(prefixes: ["assessments.", "subjects"]) { [weak self] in
+            await self?.hydrateFromCache()
+        }
+    }
+
+    deinit {
+        cacheListenerTask?.cancel()
+    }
+
+    private func hydrateFromCache() async {
+        if let cached: [Assessment] = await repository.cachedValue(StudentCacheKey.assessmentsUpcoming.storageKey) {
+            upcoming = cached
+        }
+        if let cached: [Assessment] = await repository.cachedValue(StudentCacheKey.assessmentsPast.storageKey) {
+            past = cached
+        }
+        if let cached: [Subject] = await repository.cachedValue(StudentCacheKey.subjects.storageKey) {
+            subjects = cached
+        }
     }
 
     public var visibleItems: [Assessment] {
@@ -62,7 +82,8 @@ public final class LearnAssessmentsViewModel {
 
     public func load() async {
         guard !isLoading else { return }
-        isLoading = true
+        await hydrateFromCache()
+        isLoading = upcoming.isEmpty && past.isEmpty && subjects.isEmpty
         errorMessage = nil
         defer { isLoading = false }
 

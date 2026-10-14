@@ -64,6 +64,16 @@ public struct StudentRepositoryLive: StudentRepository, Sendable {
         }
     }
 
+    public func getCourseDocumentThemes() async -> AppResult<[CourseDocumentTheme]> {
+        await safeCall {
+            let session = try requireSession()
+            let client = SeqtaStudentClient(session: session)
+            let (data, _) = try await client.post(.loadCourses, body: [:])
+            let payload = try JSONObjectHelpers.seqtaPayload(from: data)
+            return SeqtaResponseParsers.parseCourseDocumentThemes(payload: payload)
+        }
+    }
+
     public func getTimetable(from: String?, until: String?) async -> AppResult<[TimetableLesson]> {
         await safeCall {
             let session = try requireSession()
@@ -309,15 +319,25 @@ public struct StudentRepositoryLive: StudentRepository, Sendable {
     }
 
     public func downloadMessageAttachment(uuid: String) async -> AppResult<Data> {
+        await downloadSeqtaFile { try await $0.downloadMessageFile(uuid: uuid) }
+    }
+
+    public func downloadCourseResourceFile(uuid: String) async -> AppResult<Data> {
+        await downloadSeqtaFile { try await $0.downloadCourseResourceFile(uuid: uuid) }
+    }
+
+    private func downloadSeqtaFile(
+        _ fetch: (SeqtaStudentClient) async throws -> (Data, HTTPURLResponse)
+    ) async -> AppResult<Data> {
         await safeCall {
             let session = try requireSession()
             let client = SeqtaStudentClient(session: session)
-            let (data, response) = try await client.downloadMessageFile(uuid: uuid)
+            let (data, response) = try await fetch(client)
             guard (200 ... 299).contains(response.statusCode) else {
                 throw RepositoryError.networkFailed("HTTP \(response.statusCode)")
             }
             guard !data.isEmpty else {
-                throw RepositoryError.networkFailed("Empty attachment body")
+                throw RepositoryError.networkFailed("Empty file body")
             }
             return data
         }
@@ -445,6 +465,12 @@ public struct StudentRepositoryLive: StudentRepository, Sendable {
             _ = try await client.heartbeat()
         }
     }
+
+    public func readCachedJSON(storageKey: String) async -> Data? {
+        nil
+    }
+
+    public func clearPersistentCache() async {}
 
     // MARK: - Helpers
 

@@ -176,7 +176,7 @@ public struct HomeScreen: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionHeader(
-                title: "Tasks",
+                title: "Assessments",
                 subtitle: "Coming up",
                 actionLabel: "All",
                 onAction: navigation.onAssessmentsClick

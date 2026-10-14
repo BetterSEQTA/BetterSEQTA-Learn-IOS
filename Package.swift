@@ -54,7 +54,10 @@ let package = Package(
         ),
         .target(
             name: "Data",
-            dependencies: ["CoreNetworking", "CoreSession", "Domain", "CoreCommon"]
+            dependencies: ["CoreNetworking", "CoreSession", "Domain", "CoreCommon"],
+            linkerSettings: [
+                .linkedLibrary("sqlite3", .when(platforms: [.iOS, .macOS, .tvOS, .watchOS])),
+            ]
         ),
         .target(
             name: "CoreDesign",

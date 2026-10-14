@@ -46,6 +46,7 @@ public final class LearnAppDependencies: ObservableObject {
 
     public func logout() async {
         await authRepository.logout()
+        await studentRepository.clearPersistentCache()
         homeLaunchGate.reset()
         sessionStore.clear()
         HomeWidgetRefresh.publishSignedOut()

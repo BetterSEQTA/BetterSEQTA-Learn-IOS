@@ -338,21 +338,119 @@ final class SeqtaResponseParsersTests: XCTestCase {
         XCTAssertEqual(lessons[0].teacherName, "Ms Example")
     }
 
-    func testParseCourseContentReadsDesQtaPayload() throws {
+    func testParseCourseContentReadsModuleDocument() throws {
         let document = """
-        {"blocks":[{"text":"Welcome to the course.","type":"unstyled"}],"entityMap":{}}
+        {"document":{"modules":[{"uuid":"a","type":"title","content":{"value":"Welcome"},"prevModule":null,"nextModule":null},{"uuid":"b","type":"text","content":{"content":{"blocks":[{"text":"Course intro paragraph.","type":"unstyled"}],"entityMap":{}}},"prevModule":"a","nextModule":null}]}}
         """
         let payload: [String: Any] = [
             "c": "AEENG1",
             "t": "11 ATAR English",
             "document": document,
-            "w": [[["t": "Week 1 intro"], ["t": "Essay skills"]]],
+            "w": [[["t": "Week 1 intro", "h": "Read chapter 1"]]],
+            "cf": [
+                [
+                    "id": 1,
+                    "filename": "Syllabus.pdf",
+                    "size": "1024",
+                    "uuid": "file-uuid",
+                    "mimetype": "application/pdf",
+                ],
+            ],
         ]
         let content = SeqtaResponseParsers.parseCourseContent(payload: payload)
         XCTAssertEqual(content?.code, "AEENG1")
         XCTAssertEqual(content?.title, "11 ATAR English")
-        XCTAssertEqual(content?.overview, "Welcome to the course.")
-        XCTAssertEqual(content?.lessonTopics, ["Week 1 intro", "Essay skills"])
+        XCTAssertEqual(content?.overviewBlocks.count, 2)
+        XCTAssertEqual(content?.lessons.count, 1)
+        XCTAssertEqual(content?.lessons[0].weekIndex, 0)
+        XCTAssertEqual(content?.lessons[0].title, "Week 1 intro")
+        XCTAssertEqual(content?.lessons[0].homework, "Read chapter 1")
+        XCTAssertEqual(content?.courseFiles.count, 1)
+        XCTAssertEqual(content?.courseFiles[0].filename, "Syllabus.pdf")
+        XCTAssertFalse(content?.documentParseError ?? true)
+    }
+
+    func testParseCourseContentReadsOverviewHTMLField() throws {
+        let payload: [String: Any] = [
+            "c": "ENG",
+            "t": "English",
+            "o": "<p><strong>Unit overview</strong></p>",
+            "document": "{\"document\":{\"modules\":[{\"uuid\":\"a\",\"type\":\"title\",\"content\":{\"value\":\"Welcome\"},\"prevModule\":null,\"nextModule\":null}]}}",
+        ]
+        let content = SeqtaResponseParsers.parseCourseContent(payload: payload)
+        XCTAssertEqual(content?.overviewBlocks.count, 2)
+        XCTAssertEqual(content?.overviewBlocks.first, .html("<p><strong>Unit overview</strong></p>"))
+    }
+
+    func testParseCourseContentReadsLegacyEditorModuleDocument() throws {
+        let document = """
+        {"document":{"theme":"theme-uuid","modules":[{"uuid":"cover","type":"be8a6c4b-25b7-4129-bfcc-040ce937fab3","content":null},{"uuid":"body","type":"0d49d130-c197-421d-a56a-d1ba0a67cfc0","content":{"content":"<p><strong>Unit 1 overview body</strong></p>"}}]}}
+        """
+        let payload: [String: Any] = [
+            "c": "AEENG1",
+            "t": "11 ATAR English",
+            "document": document,
+        ]
+        let content = SeqtaResponseParsers.parseCourseContent(payload: payload)
+        XCTAssertEqual(content?.overviewBlocks.count, 1)
+        if case .html(let html) = content?.overviewBlocks.first {
+            XCTAssertTrue(html.contains("Unit 1 overview body"))
+        } else {
+            XCTFail("Expected legacy editor HTML block")
+        }
+        XCTAssertEqual(content?.themeReference, "theme-uuid")
+    }
+
+    func testParseCourseContentReadsInlineLessonHTMLAndResources() throws {
+        let payload: [String: Any] = [
+            "c": "SCI",
+            "t": "Science",
+            "w": [[
+                [
+                    "t": "Lab safety",
+                    "l": "<p>Wear goggles in the lab.</p>",
+                    "r": [
+                        [
+                            "uuid": "res-uuid",
+                            "t": "Safety sheet",
+                            "filename": "safety.pdf",
+                            "size": "2048",
+                            "mimetype": "application/pdf",
+                        ],
+                    ],
+                ],
+            ]],
+        ]
+        let content = SeqtaResponseParsers.parseCourseContent(payload: payload)
+        XCTAssertEqual(content?.lessons.count, 1)
+        XCTAssertEqual(content?.lessons[0].title, "Lab safety")
+        XCTAssertEqual(content?.lessons[0].blocks.count, 1)
+        XCTAssertEqual(content?.lessons[0].resources.count, 1)
+        XCTAssertEqual(content?.lessons[0].resources[0].filename, "Safety sheet")
+    }
+
+    func testParseCourseDocumentThemesReadsCatalogPayload() throws {
+        let payload: [[String: Any]] = [
+            [
+                "uuid": "theme-1",
+                "name": "Biology",
+                "accentColour": "#4e9a06",
+                "accentContrastColour": "#fff",
+                "textColour": "#061463",
+                "documentBackground": "#51970d",
+                "cardBackground": "#f8f8f8",
+                "moduleBackground": "rgba(255, 255, 255, 0.8)",
+                "cardBorderColour": "#eee",
+                "fontFamily": "Montserrat",
+                "fontSize": "14pt",
+                "applyImage": true,
+                "userfile": ["name": "th.jpg", "id": 86821, "uuid": "744b4bc9-ce16-42f3-9e0f-03d6f03c6b8d"],
+            ],
+        ]
+        let themes = SeqtaResponseParsers.parseCourseDocumentThemes(payload: payload)
+        XCTAssertEqual(themes.count, 1)
+        XCTAssertEqual(themes[0].name, "Biology")
+        XCTAssertEqual(themes[0].headerImageUUID, "744b4bc9-ce16-42f3-9e0f-03d6f03c6b8d")
     }
 
     func testParseTimetableLessonsSkipsRowsMissingRequiredFields() throws {

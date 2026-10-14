@@ -34,7 +34,7 @@ enum LearnShellDeeplinkRouter {
         case "courses", "subjects":
             return .tab(.courses)
         case "tasks", "assessments", "assessment":
-            return .tab(.tasks)
+            return .tab(.assessments)
         case "messages", "message", "inbox":
             return .tab(.messages)
         case "portals", "portal":

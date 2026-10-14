@@ -15,6 +15,7 @@ Android reference: `core/network/.../SeqtaStudentApi.kt`, `data/student/StudentR
 | Subjects | `/seqta/student/load/subjects` | `{}` |
 | Courses (list) | `/seqta/student/load/courses` | `{}` (legacy; prefer per-subject) |
 | Course content | `/seqta/student/load/courses` | `programme`, `metaclass` (strings; see DesQTA `get_course_content`) |
+| Course page themes | `/seqta/student/load/courses` | `{}` — returns shared theme catalog (`accentColour`, `userfile`, `documentBackground`, …) |
 | Timetable | `/seqta/student/load/timetable` | `from`, `until`, `student` |
 | Upcoming assessments | `/seqta/student/assessment/list/upcoming` | `student` |
 | Past assessments | `/seqta/student/assessment/list/past` | per-subject `programme`, `metaclass`, `student` |
@@ -25,6 +26,7 @@ Android reference: `core/network/.../SeqtaStudentApi.kt`, `data/student/StudentR
 | Save message | `/seqta/student/save/message` | compose; `files: [Int]` attachment ids; `mode: x-star` to star/unstar |
 | Upload message file | `/seqta/student/file/upload/xhr2` | raw body; headers `X-File-Name`, `X-Accept-Mimes`, `X-Requested-With` |
 | Message attachment GET | `/seqta/student/load/file` | `type=message`, `file=<uuid>` |
+| Course resource GET | `/seqta/student/load/file` | `type=resource`, `file=<uuid>` (overview `cf` and module resources; Android `buildSeqtaFileUrl`) |
 | Message people | `/seqta/student/load/message/people` | |
 | Portals | `/seqta/student/load/portals` | |
 | Notices labels | `/seqta/student/load/notices` | `mode: labels` |

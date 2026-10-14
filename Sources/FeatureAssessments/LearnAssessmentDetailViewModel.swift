@@ -28,7 +28,11 @@ public final class LearnAssessmentDetailViewModel {
 
     public func load() async {
         guard !isLoading else { return }
-        isLoading = true
+        let cacheKey = StudentCacheKey.assessmentDetail(assessmentId: assessment.id).storageKey
+        if let cached: AssessmentDetail = await repository.cachedValue(cacheKey) {
+            detail = cached
+        }
+        isLoading = detail == nil
         errorMessage = nil
         defer { isLoading = false }
 

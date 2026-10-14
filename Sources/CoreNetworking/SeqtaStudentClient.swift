@@ -43,15 +43,24 @@ public struct SeqtaStudentClient: Sendable {
         try await post(.login, body: [:])
     }
 
-    public func downloadMessageFile(uuid: String) async throws -> (Data, HTTPURLResponse) {
+    public func downloadStudentFile(type: String, uuid: String) async throws -> (Data, HTTPURLResponse) {
         try await learnSeqtaGET(
             session: session,
             path: "/seqta/student/load/file",
             queryItems: [
-                URLQueryItem(name: "type", value: "message"),
+                URLQueryItem(name: "type", value: type),
                 URLQueryItem(name: "file", value: uuid),
             ]
         )
+    }
+
+    public func downloadMessageFile(uuid: String) async throws -> (Data, HTTPURLResponse) {
+        try await downloadStudentFile(type: "message", uuid: uuid)
+    }
+
+    /// Course overview (`cf`) and module resource blocks (Android `buildSeqtaFileUrl` default).
+    public func downloadCourseResourceFile(uuid: String) async throws -> (Data, HTTPURLResponse) {
+        try await downloadStudentFile(type: "resource", uuid: uuid)
     }
 
     public func uploadComposeFile(filename: String, fileData: Data) async throws -> (Data, HTTPURLResponse) {

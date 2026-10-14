@@ -17,6 +17,7 @@ public protocol StudentRepository: Sendable {
     func getSubjects() async -> AppResult<[Subject]>
     func getCourses() async -> AppResult<[Course]>
     func getCourseContent(programme: Int, metaclass: Int) async -> AppResult<CourseContent>
+    func getCourseDocumentThemes() async -> AppResult<[CourseDocumentTheme]>
     func getTimetable(from: String?, until: String?) async -> AppResult<[TimetableLesson]>
     func getUpcomingAssessments() async -> AppResult<[Assessment]>
     func getPastAssessments() async -> AppResult<[Assessment]>
@@ -36,6 +37,7 @@ public protocol StudentRepository: Sendable {
     func setMessagesStarred(ids: [Int], starred: Bool) async -> AppResult<Void>
     func moveMessagesToLabel(ids: [Int], label: String) async -> AppResult<Void>
     func downloadMessageAttachment(uuid: String) async -> AppResult<Data>
+    func downloadCourseResourceFile(uuid: String) async -> AppResult<Data>
     func loadMessageRecipients(mode: String) async -> AppResult<[MessageRecipient]>
     func uploadMessageComposeFile(filename: String, data: Data) async -> AppResult<MessageComposeAttachment>
     func sendMessage(
@@ -49,6 +51,10 @@ public protocol StudentRepository: Sendable {
     func getNoticeLabels() async -> AppResult<[NoticeLabel]>
     func getNotices(date: String) async -> AppResult<[Notice]>
     func sendHeartbeat() async -> AppResult<Void>
+
+    /// JSON blob from local cache, if any (`StudentCacheKey.storageKey`).
+    func readCachedJSON(storageKey: String) async -> Data?
+    func clearPersistentCache() async
 }
 
 @MainActor

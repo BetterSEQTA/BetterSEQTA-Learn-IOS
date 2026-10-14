@@ -53,18 +53,140 @@ public struct Course: Sendable, Equatable, Identifiable, Codable {
     }
 }
 
+/// Rendered block from SEQTA course module pipeline (DesQTA `ModuleList` / `ModuleRenderer`).
+public enum CourseRenderedBlock: Sendable, Equatable, Codable {
+    case title(String)
+    case html(String)
+    case link(String)
+    case resources([CourseResourceFile])
+    /// LaTeX-style formula module (`LINK` type with formula + scale).
+    case formula(String)
+    /// In-document poll (read-only listing of options).
+    case poll(proposition: String, options: [String])
+}
+
+public struct CourseResourceFile: Sendable, Equatable, Identifiable, Codable {
+    public let id: Int
+    public let filename: String
+    public let sizeLabel: String
+    public let uuid: String
+    public let mimetype: String
+
+    public init(id: Int, filename: String, sizeLabel: String, uuid: String, mimetype: String) {
+        self.id = id
+        self.filename = filename
+        self.sizeLabel = sizeLabel
+        self.uuid = uuid
+        self.mimetype = mimetype
+    }
+}
+
+public struct CourseLessonItem: Sendable, Equatable, Identifiable, Codable {
+    public let id: String
+    public let weekIndex: Int
+    public let dayIndex: Int
+    public let title: String
+    public let homework: String?
+    public let resources: [CourseResourceFile]
+    public let blocks: [CourseRenderedBlock]
+
+    public init(
+        id: String,
+        weekIndex: Int,
+        dayIndex: Int,
+        title: String,
+        homework: String?,
+        resources: [CourseResourceFile] = [],
+        blocks: [CourseRenderedBlock]
+    ) {
+        self.id = id
+        self.weekIndex = weekIndex
+        self.dayIndex = dayIndex
+        self.title = title
+        self.homework = homework
+        self.resources = resources
+        self.blocks = blocks
+    }
+}
+
+/// SEQTA Learn course page theme (`load/courses` with no programme returns the theme catalog).
+public struct CourseDocumentTheme: Sendable, Equatable, Identifiable, Codable {
+    public let id: String
+    public let name: String
+    public let accentColour: String
+    public let accentContrastColour: String
+    public let textColour: String
+    public let documentBackground: String
+    public let cardBackground: String
+    public let moduleBackground: String
+    public let cardBorderColour: String
+    public let fontFamily: String
+    public let fontSize: String
+    public let applyImage: Bool
+    public let headerImageUUID: String?
+
+    public init(
+        id: String,
+        name: String,
+        accentColour: String,
+        accentContrastColour: String,
+        textColour: String,
+        documentBackground: String,
+        cardBackground: String,
+        moduleBackground: String,
+        cardBorderColour: String,
+        fontFamily: String,
+        fontSize: String,
+        applyImage: Bool,
+        headerImageUUID: String?
+    ) {
+        self.id = id
+        self.name = name
+        self.accentColour = accentColour
+        self.accentContrastColour = accentContrastColour
+        self.textColour = textColour
+        self.documentBackground = documentBackground
+        self.cardBackground = cardBackground
+        self.moduleBackground = moduleBackground
+        self.cardBorderColour = cardBorderColour
+        self.fontFamily = fontFamily
+        self.fontSize = fontSize
+        self.applyImage = applyImage
+        self.headerImageUUID = headerImageUUID
+    }
+}
+
 /// Per-subject course page from `/seqta/student/load/courses` with `programme` + `metaclass`.
-public struct CourseContent: Sendable, Equatable {
+public struct CourseContent: Sendable, Equatable, Codable {
     public let code: String
     public let title: String
-    public let overview: String?
-    public let lessonTopics: [String]
+    public let overviewBlocks: [CourseRenderedBlock]
+    public let lessons: [CourseLessonItem]
+    public let courseFiles: [CourseResourceFile]
+    public let documentParseError: Bool
+    /// Theme id or name from `document.theme` in the overview JSON.
+    public let themeReference: String?
+    /// Course header / banner image (`im` on payload).
+    public let headerImageUUID: String?
 
-    public init(code: String, title: String, overview: String?, lessonTopics: [String]) {
+    public init(
+        code: String,
+        title: String,
+        overviewBlocks: [CourseRenderedBlock],
+        lessons: [CourseLessonItem],
+        courseFiles: [CourseResourceFile],
+        documentParseError: Bool,
+        themeReference: String? = nil,
+        headerImageUUID: String? = nil
+    ) {
         self.code = code
         self.title = title
-        self.overview = overview
-        self.lessonTopics = lessonTopics
+        self.overviewBlocks = overviewBlocks
+        self.lessons = lessons
+        self.courseFiles = courseFiles
+        self.documentParseError = documentParseError
+        self.themeReference = themeReference
+        self.headerImageUUID = headerImageUUID
     }
 }
 
@@ -184,7 +306,7 @@ public struct MessageSummary: Sendable, Equatable, Hashable, Codable, Identifiab
     }
 }
 
-public struct MessageAttachment: Sendable, Equatable, Identifiable {
+public struct MessageAttachment: Sendable, Equatable, Identifiable, Codable {
     public let id: Int
     public let filename: String
     public let mimetype: String
@@ -200,7 +322,7 @@ public struct MessageAttachment: Sendable, Equatable, Identifiable {
     }
 }
 
-public struct MessageDetail: Sendable, Equatable {
+public struct MessageDetail: Sendable, Equatable, Codable {
     public let id: Int
     public let htmlBody: String
     public let attachments: [MessageAttachment]

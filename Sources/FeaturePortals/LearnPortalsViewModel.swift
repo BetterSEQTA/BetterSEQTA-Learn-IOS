@@ -10,14 +10,29 @@ public final class LearnPortalsViewModel {
     public var errorMessage: String?
 
     private let repository: StudentRepository
+    nonisolated(unsafe) private var cacheListenerTask: Task<Void, Never>?
 
     public init(repository: StudentRepository) {
         self.repository = repository
+        cacheListenerTask = StudentCacheUpdateListener.start(prefixes: ["portals"]) { [weak self] in
+            await self?.hydrateFromCache()
+        }
+    }
+
+    deinit {
+        cacheListenerTask?.cancel()
+    }
+
+    private func hydrateFromCache() async {
+        if let cached: [Portal] = await repository.cachedValue(StudentCacheKey.portals.storageKey) {
+            portals = cached
+        }
     }
 
     public func load() async {
         guard !isLoading else { return }
-        isLoading = true
+        await hydrateFromCache()
+        isLoading = portals.isEmpty
         errorMessage = nil
         defer { isLoading = false }
 

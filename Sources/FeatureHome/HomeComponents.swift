@@ -86,7 +86,7 @@ struct HomeFilterMenus: View {
         Menu {
             Button("Timetable", systemImage: "calendar", action: navigation.onTimetableClick)
             Button("Courses", systemImage: "book", action: navigation.onCoursesClick)
-            Button("Tasks", systemImage: "checklist", action: navigation.onAssessmentsClick)
+            Button("Assessments", systemImage: "checklist", action: navigation.onAssessmentsClick)
             Button("Messages", systemImage: "envelope", action: navigation.onMessagesClick)
             Divider()
             Button("Portals", systemImage: "globe", action: navigation.onPortalsClick)

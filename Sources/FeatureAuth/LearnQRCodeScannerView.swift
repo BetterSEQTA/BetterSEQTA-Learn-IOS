@@ -74,7 +74,8 @@ private struct LearnQRCodeScannerRepresentable: UIViewRepresentable {
         coordinator.teardown()
     }
 
-    final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
+    @MainActor
+    final class Coordinator: NSObject, @preconcurrency AVCaptureMetadataOutputObjectsDelegate {
         let onCodeScanned: (String) -> Void
         private var captureSession: AVCaptureSession?
         private var previewLayer: AVCaptureVideoPreviewLayer?

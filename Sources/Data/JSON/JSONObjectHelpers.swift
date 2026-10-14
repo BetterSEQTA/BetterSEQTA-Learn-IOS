@@ -9,8 +9,28 @@ public enum JSONObjectHelpers {
 
     public static func seqtaPayload(from data: Data) throws -> Any? {
         let root = try object(from: data)
-        guard let dict = root as? JSONObject else { return root }
-        return dict["payload"] ?? dict
+        return unwrapSeqtaValue(root)
+    }
+
+    /// Unwraps `payload` keys and JSON-encoded string layers (DesQTA / Android `unwrapPayload`).
+    public static func unwrapSeqtaValue(_ value: Any?) -> Any? {
+        var current = value
+        for _ in 0 ..< 6 {
+            if let string = current as? String,
+               let data = string.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) {
+                current = parsed
+                continue
+            }
+            if let dict = current as? JSONObject {
+                if let inner = dict["payload"] {
+                    current = inner
+                    continue
+                }
+            }
+            break
+        }
+        return current
     }
 
     static func string(_ object: JSONObject, keys: String...) -> String? {
