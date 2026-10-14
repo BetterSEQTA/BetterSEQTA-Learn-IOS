@@ -16,8 +16,9 @@ The Xcode app uses the existing **BetterLearn** App Store Connect record:
 - Developer team: `5949S6UQCX`
 - Shared App Group: `group.org.betterseqta.learn`
 
-Both targets use automatic signing. Register the widget identifier and associate
-the shared App Group with both identifiers in the developer account before
+Both targets use automatic signing. The widget identifier and shared App Group
+are registered for this developer team, and both identifiers are associated with
+the App Group. If moving to another team, recreate these registrations before
 archiving a signed build. The App Group matches the existing shared-store code.
 The `org.betterseqta.learn` background task identifiers and URL schemes retain
 their existing values; they do not need to match the App Store bundle ID.
@@ -30,8 +31,8 @@ identity. An xtool build and an Xcode build are therefore separate app installs.
 Apple requires the first workflow to be configured from Xcode:
 
 1. Sign into the developer account in Xcode Settings > Accounts.
-2. Open the project and choose Product > Xcode Cloud > Create Workflow (or the
-   Cloud tab in the Report navigator).
+2. Open the project, select the Cloud tab in the Report navigator, and choose
+   Get Started / Create Workflow.
 3. Select `BetterSEQTALearn`, the developer team above, and the existing
    BetterLearn app record.
 4. Authorize Xcode Cloud for `BetterSEQTA/BetterSEQTA-Learn-IOS` on GitHub.
