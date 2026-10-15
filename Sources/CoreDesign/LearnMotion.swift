@@ -71,9 +71,14 @@ public enum LearnMotion {
         forward: Bool,
         richAnimations: Bool
     ) -> AnyTransition {
-        directionalSlide(
-            direction: forward ? .forward : .backward,
-            richAnimations: richAnimations
+        guard richAnimations else {
+            return .opacity
+        }
+        let edge: Edge = forward ? .trailing : .leading
+        let removalEdge: Edge = forward ? .leading : .trailing
+        return .asymmetric(
+            insertion: .move(edge: edge).combined(with: .opacity),
+            removal: .move(edge: removalEdge).combined(with: .opacity)
         )
     }
 

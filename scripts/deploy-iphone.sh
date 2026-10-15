@@ -22,6 +22,8 @@ echo "[deploy-iphone] Syncing sources to Linux build tree (no Android/DesQTA)…
 LINUX_SRC="$("$SCRIPT_DIR/sync-linux-build-tree.sh")"
 cd "$LINUX_SRC"
 rm -f .build/.lock 2>/dev/null || true
+# Package platform / target graph changes are not always picked up incrementally.
+rm -rf .build
 
 if [[ "${WITH_WIDGET:-0}" == "1" ]]; then
   echo "[deploy-iphone] Building with widget extension (xtool.yml)."

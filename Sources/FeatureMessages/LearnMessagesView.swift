@@ -12,27 +12,24 @@ public struct LearnMessagesView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                messagesChrome
-                messageList
-            }
-            .background { LearnScreenBackground() }
-            .learnShellNavigationDepth(0)
-            .navigationBarHidden(true)
-            .navigationDestination(for: MessageSummary.self) { message in
-                LearnMessageDetailView(
-                    viewModel: viewModel.detailViewModel(for: message)
-                )
-            }
-            .task { await viewModel.load() }
-            .sheet(isPresented: $showCompose, onDismiss: {
-                Task { await viewModel.load() }
-            }) {
-                LearnComposeMessageView(
-                    viewModel: LearnComposeMessageViewModel(repository: viewModel.studentRepository)
-                )
-            }
+        VStack(spacing: 0) {
+            messagesChrome
+            messageList
+        }
+        .background { LearnScreenBackground() }
+        .learnShellNavigationDepth(0)
+        .navigationDestination(for: MessageSummary.self) { message in
+            LearnMessageDetailView(
+                viewModel: viewModel.detailViewModel(for: message)
+            )
+        }
+        .task { await viewModel.load() }
+        .sheet(isPresented: $showCompose, onDismiss: {
+            Task { await viewModel.load() }
+        }) {
+            LearnComposeMessageView(
+                viewModel: LearnComposeMessageViewModel(repository: viewModel.studentRepository)
+            )
         }
     }
 

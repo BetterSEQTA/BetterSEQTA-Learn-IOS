@@ -10,6 +10,7 @@ struct LearnShellDrawer: View {
     let unreadMessages: Int
     let onSelectTab: (ShellTab) -> Void
     let onSelectOverlay: (ShellOverlay) -> Void
+    let onOpenSettings: () -> Void
     let onLogout: () -> Void
 
     var body: some View {
@@ -59,10 +60,10 @@ struct LearnShellDrawer: View {
                     title: "Settings",
                     systemImage: "gearshape",
                     badge: nil,
-                    selected: selectedOverlay == .settings
+                    selected: false
                 ) {
                     LearnHaptics.selection()
-                    onSelectOverlay(.settings)
+                    onOpenSettings()
                 }
             }
 
@@ -79,11 +80,7 @@ struct LearnShellDrawer: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
-        .background {
-            LearnTheme.Colors.elevatedBackground
-                .background(.ultraThinMaterial)
-                .ignoresSafeArea()
-        }
+        .learnSidebarGlass()
     }
 
     private var profileTitle: String {

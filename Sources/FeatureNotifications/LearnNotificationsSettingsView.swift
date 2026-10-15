@@ -92,11 +92,9 @@ public struct LearnNotificationsSettingsView: View {
             .listRowBackground(LearnGlassListRowBackground())
         }
         .learnInsetSettingsList()
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.inline)
         .learnShellNavigationDepth(1)
-        .toolbar(.hidden, for: .navigationBar)
-        .safeAreaInset(edge: .top) {
-            LearnInlineNavBar(title: "Notifications")
-        }
         .task { await viewModel.refreshAuthorizationStatus() }
     }
 

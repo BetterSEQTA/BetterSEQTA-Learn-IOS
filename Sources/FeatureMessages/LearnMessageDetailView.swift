@@ -12,17 +12,7 @@ public struct LearnMessageDetailView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            LearnInlineNavBar(title: viewModel.summary.title) {
-                HStack(spacing: 2) {
-                    LearnCopyMorphIconButton(
-                        text: viewModel.summary.title,
-                        accessibilityLabel: "Copy message subject"
-                    )
-                    messageActions
-                }
-            }
-            Group {
+        Group {
                 if viewModel.isLoading, viewModel.htmlBody == nil {
                     LearnLoadingState(preset: .detailBody)
                 } else if let error = viewModel.errorMessage, viewModel.htmlBody == nil {
@@ -70,12 +60,21 @@ public struct LearnMessageDetailView: View {
                         progress: learnScrollProgress(from: scrollOffsetY)
                     )
                 }
-            }
-            .animation(nil, value: viewModel.isLoading)
         }
+        .animation(nil, value: viewModel.isLoading)
         .background { LearnScreenBackground() }
+        .navigationTitle(viewModel.summary.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                LearnCopyMorphIconButton(
+                    text: viewModel.summary.title,
+                    accessibilityLabel: "Copy message subject"
+                )
+                messageActions
+            }
+        }
         .learnShellNavigationDepth(1)
-        .toolbar(.hidden, for: .navigationBar)
             .alert(
                 "Couldn't open attachment",
                 isPresented: Binding(

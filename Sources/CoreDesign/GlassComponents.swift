@@ -11,10 +11,10 @@ public struct LearnGlassBar<Content: View>: View {
         content
             .padding(.horizontal, LearnTheme.Spacing.md)
             .padding(.vertical, LearnTheme.Spacing.sm)
-            .background(.ultraThinMaterial, in: Capsule())
+            .glassEffect(.regular, in: Capsule())
             .overlay(
                 Capsule()
-                    .strokeBorder(LearnTheme.Colors.glassStroke, lineWidth: 1)
+                    .strokeBorder(LearnTheme.Colors.glassStroke.opacity(0.35), lineWidth: 1)
             )
     }
 }

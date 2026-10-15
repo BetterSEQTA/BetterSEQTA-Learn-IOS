@@ -73,6 +73,8 @@ public struct LearnDateChrome: View {
 
 public struct LearnGraphicalDateSheet: View {
     @State private var selection: Date
+    /// Opens tall; user can drag down to `.medium` if desired.
+    @State private var detent: PresentationDetent = .large
     private let onConfirm: (Date) -> Void
     private let onCancel: () -> Void
 
@@ -88,19 +90,24 @@ public struct LearnGraphicalDateSheet: View {
 
     public var body: some View {
         NavigationStack {
-            DatePicker("Date", selection: $selection, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .padding()
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    LearnSheetToolbar(
-                        title: "Select date",
-                        onCancel: onCancel,
-                        onDone: { onConfirm(selection) }
-                    )
-                }
+            ScrollView {
+                DatePicker("Date", selection: $selection, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 12)
+                    .frame(minHeight: 380)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                LearnSheetToolbar(
+                    title: "Select date",
+                    onCancel: onCancel,
+                    onDone: { onConfirm(selection) }
+                )
+            }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         .learnLiquidGlassSheetBackground()
     }

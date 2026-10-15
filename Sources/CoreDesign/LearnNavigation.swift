@@ -45,7 +45,8 @@ public struct LearnInlineNavBar<Trailing: View>: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.body.weight(.semibold))
-                    .frame(width: 32, height: 32)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(LearnPressFeedbackStyle(scale: 0.92))
             .accessibilityLabel("Back")
@@ -60,8 +61,8 @@ public struct LearnInlineNavBar<Trailing: View>: View {
         }
         .padding(.horizontal, LearnLayout.horizontalPadding)
         .padding(.vertical, 8)
-        .overlay(alignment: .bottom) {
-            LearnSeparatorHairline()
-        }
+        .frame(maxWidth: .infinity)
+        .learnShellHeaderBackground()
+        .contentShape(Rectangle())
     }
 }

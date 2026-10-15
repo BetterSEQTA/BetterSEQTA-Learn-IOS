@@ -65,8 +65,7 @@ public struct LearnSettingsView: View {
             .listRowBackground(LearnGlassListRowBackground())
         }
         .learnInsetSettingsList()
-        .learnShellNavigationDepth(0)
-        .toolbar(.hidden, for: .navigationBar)
+        .learnShellNavigationDepth(1)
         .onAppear { viewModel.refreshFromSession() }
     }
 }

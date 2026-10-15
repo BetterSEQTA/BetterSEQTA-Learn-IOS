@@ -11,14 +11,11 @@ public struct LearnAssessmentsView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            assessmentsBody
-                .learnShellNavigationDepth(0)
-                .navigationDestination(item: $selectedAssessment) { assessment in
-                    LearnAssessmentDetailView(viewModel: viewModel.detailViewModel(for: assessment))
-                }
-        }
-        .toolbar(.hidden, for: .navigationBar)
+        assessmentsBody
+            .learnShellNavigationDepth(0)
+            .navigationDestination(item: $selectedAssessment) { assessment in
+                LearnAssessmentDetailView(viewModel: viewModel.detailViewModel(for: assessment))
+            }
     }
 
     private var assessmentsBody: some View {

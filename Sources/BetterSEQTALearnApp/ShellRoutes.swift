@@ -31,13 +31,11 @@ enum ShellTab: Hashable, CaseIterable {
 enum ShellOverlay: Hashable {
     case portals
     case notices
-    case settings
 
     var title: String {
         switch self {
         case .portals: "Welcome Portals"
         case .notices: "Notices"
-        case .settings: "Settings"
         }
     }
 }

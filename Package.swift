@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
@@ -22,7 +22,8 @@ func targetDeps(_ names: [String]) -> [Target.Dependency] {
 let package = Package(
     name: "BetterSEQTALearn",
     platforms: [
-        .iOS(.v17),
+        // Liquid Glass (`glassEffect`, etc.) requires iOS 26+.
+        .iOS(.v26),
     ],
     products: [
         .library(

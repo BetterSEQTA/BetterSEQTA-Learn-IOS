@@ -54,7 +54,6 @@ public struct LearnPortalsView: View {
         }
         .background { LearnScreenBackground() }
         .learnShellNavigationDepth(0)
-        .toolbar(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
         .refreshable { await viewModel.load() }
         .sheet(item: $selectedPortal) { portal in

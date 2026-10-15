@@ -339,7 +339,6 @@ private struct LearnTimetableAgendaRow: View {
             lessonCard
         }
         .padding(.bottom, isLast ? 0 : 14)
-        .opacity(phase == .past ? 0.55 : 1)
     }
 
     private var timelineColumn: some View {
@@ -378,11 +377,17 @@ private struct LearnTimetableAgendaRow: View {
             if let range = lesson.displayTimeRange {
                 Text(range)
                     .font(.caption.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(phase == .current ? accent : LearnTheme.Colors.secondaryText)
+                    .foregroundStyle(
+                        phase == .current
+                            ? accent
+                            : (phase == .past ? LearnTheme.Colors.tertiaryText : LearnTheme.Colors.secondaryText)
+                    )
             }
             Text(lesson.title)
                 .font(.body.weight(.semibold))
-                .foregroundStyle(LearnTheme.Colors.primaryText)
+                .foregroundStyle(
+                    phase == .past ? LearnTheme.Colors.secondaryText : LearnTheme.Colors.primaryText
+                )
             if let teacher = lesson.teacherName, !teacher.isEmpty {
                 Label(teacher, systemImage: "person")
                     .font(.caption)
@@ -402,7 +407,7 @@ private struct LearnTimetableAgendaRow: View {
                 .fill(
                     phase == .current
                         ? accent.opacity(0.14)
-                        : LearnTheme.Colors.groupedFill.opacity(0.35)
+                        : LearnTheme.Colors.groupedFill.opacity(0.5)
                 )
         }
         .overlay {

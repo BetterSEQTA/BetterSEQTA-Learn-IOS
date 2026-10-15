@@ -10,40 +10,37 @@ public struct LearnCoursesView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            Group {
-                if viewModel.isLoading {
-                    LearnLoadingState(preset: .list(rows: 8))
-                } else if let error = viewModel.errorMessage, viewModel.subjects.isEmpty {
-                    LearnErrorBanner(message: error) {
-                        Task { await viewModel.load() }
-                    }
-                } else if viewModel.subjects.isEmpty {
-                    LearnEmptyState(title: "No subjects", message: "Your subject list is empty.")
-                } else {
-                    List {
-                        ForEach(Array(viewModel.subjects.enumerated()), id: \.element.id) { index, subject in
-                            NavigationLink(value: subject) {
-                                LearnSubjectRow(subject: subject)
-                            }
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            .listRowBackground(Color.clear)
-                            .learnListEntrance(index: index)
+        Group {
+            if viewModel.isLoading {
+                LearnLoadingState(preset: .list(rows: 8))
+            } else if let error = viewModel.errorMessage, viewModel.subjects.isEmpty {
+                LearnErrorBanner(message: error) {
+                    Task { await viewModel.load() }
+                }
+            } else if viewModel.subjects.isEmpty {
+                LearnEmptyState(title: "No subjects", message: "Your subject list is empty.")
+            } else {
+                List {
+                    ForEach(Array(viewModel.subjects.enumerated()), id: \.element.id) { index, subject in
+                        NavigationLink(value: subject) {
+                            LearnSubjectRow(subject: subject)
                         }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .navigationDestination(for: Subject.self) { subject in
-                        LearnCourseDetailView(subject: subject, viewModel: viewModel)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .learnListEntrance(index: index)
                     }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .navigationDestination(for: Subject.self) { subject in
+                    LearnCourseDetailView(subject: subject, viewModel: viewModel)
+                }
             }
-            .background { LearnScreenBackground() }
-            .learnShellNavigationDepth(0)
-            .navigationBarHidden(true)
-            .task { await viewModel.load() }
-            .refreshable { await viewModel.load() }
         }
+        .background { LearnScreenBackground() }
+        .learnShellNavigationDepth(0)
+        .task { await viewModel.load() }
+        .refreshable { await viewModel.load() }
     }
 }
 
@@ -83,12 +80,11 @@ private struct LearnCourseDetailView: View {
                 )
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { LearnScreenBackground() }
+        .navigationTitle(subject.title)
+        .navigationBarTitleDisplayMode(.inline)
         .learnShellNavigationDepth(1)
-        .toolbar(.hidden, for: .navigationBar)
-        .safeAreaInset(edge: .top) {
-            LearnInlineNavBar(title: subject.title)
-        }
         .task {
             if let cached = viewModel.cachedCourse(for: subject) {
                 content = cached

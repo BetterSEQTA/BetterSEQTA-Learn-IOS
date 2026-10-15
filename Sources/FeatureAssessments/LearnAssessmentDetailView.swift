@@ -14,40 +14,41 @@ public struct LearnAssessmentDetailView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            LearnInlineNavBar(title: "Assessment") {
-                if let detail = viewModel.detail {
+        ScrollView {
+            Group {
+                LearnScrollOffsetReporter()
+                if viewModel.isLoading {
+                    LearnLoadingState(preset: .detailBody)
+                } else if let error = viewModel.errorMessage {
+                    LearnErrorBanner(message: error) {
+                        Task { await viewModel.load() }
+                    }
+                } else if let detail = viewModel.detail {
+                    detailContent(detail)
+                }
+            }
+            .padding(16)
+        }
+        .coordinateSpace(name: "learnScroll")
+        .onPreferenceChange(LearnScrollOffsetKey.self) { scrollOffsetY = $0 }
+        .learnScrollIslandChrome(
+            title: viewModel.detail?.title ?? "Assessment",
+            progress: learnScrollProgress(from: scrollOffsetY)
+        )
+        .background { LearnScreenBackground() }
+        .navigationTitle(viewModel.detail?.title ?? "Assessment")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let detail = viewModel.detail {
+                ToolbarItem(placement: .topBarTrailing) {
                     LearnCopyMorphIconButton(
                         text: assessmentCopyText(detail),
                         accessibilityLabel: "Copy assessment details"
                     )
                 }
             }
-            ScrollView {
-                Group {
-                    LearnScrollOffsetReporter()
-                    if viewModel.isLoading {
-                        LearnLoadingState(preset: .detailBody)
-                    } else if let error = viewModel.errorMessage {
-                        LearnErrorBanner(message: error) {
-                            Task { await viewModel.load() }
-                        }
-                    } else if let detail = viewModel.detail {
-                        detailContent(detail)
-                    }
-                }
-                .padding(16)
-            }
-            .coordinateSpace(name: "learnScroll")
-            .onPreferenceChange(LearnScrollOffsetKey.self) { scrollOffsetY = $0 }
-            .learnScrollIslandChrome(
-                title: viewModel.detail?.title ?? "Assessment",
-                progress: learnScrollProgress(from: scrollOffsetY)
-            )
         }
-        .background { LearnScreenBackground() }
         .learnShellNavigationDepth(1)
-        .toolbar(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
     }
 

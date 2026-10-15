@@ -6,6 +6,7 @@ import Foundation
 enum LearnShellDeeplinkRoute: Equatable {
     case tab(ShellTab)
     case overlay(ShellOverlay)
+    case settings
 }
 
 enum LearnShellDeeplinkRouter {
@@ -42,7 +43,7 @@ enum LearnShellDeeplinkRouter {
         case "notices", "notice":
             return .overlay(.notices)
         case "settings":
-            return .overlay(.settings)
+            return .settings
         default:
             return nil
         }

@@ -23,5 +23,5 @@ RSYNC_EXCLUDES=(
 )
 
 mkdir -p "$LINUX_SRC"
-rsync -a "${RSYNC_EXCLUDES[@]}" "$WIN_SRC/" "$LINUX_SRC/"
+rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$WIN_SRC/" "$LINUX_SRC/"
 printf '%s\n' "$LINUX_SRC"

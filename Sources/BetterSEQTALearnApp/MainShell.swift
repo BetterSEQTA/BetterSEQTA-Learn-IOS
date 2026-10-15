@@ -30,13 +30,13 @@ struct MainShell: View {
     @State private var calendarSyncViewModel: LearnCalendarSyncViewModel
 
     @State private var selectedTab: ShellTab = .home
-    @State private var tabNavigationForward = true
     @State private var showCalendarSync = false
     @State private var overlay: ShellOverlay?
     @State private var isDrawerOpen = false
     @State private var showLogoutConfirm = false
     @State private var showMessagesCompose = false
     @State private var showTimetableDatePicker = false
+    @State private var isSettingsPresented = false
     @State private var shellNavigationDepth = 0
     @State private var inboxPollTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -71,10 +71,6 @@ struct MainShell: View {
         _calendarSyncViewModel = State(
             initialValue: LearnCalendarSyncViewModel(repository: dependencies.calendarSyncRepository)
         )
-    }
-
-    private var onOverlay: Bool {
-        overlay != nil
     }
 
     var body: some View {
@@ -171,6 +167,7 @@ struct MainShell: View {
                     unreadMessages: shellViewModel.unreadMessageCount,
                     onSelectTab: { navigateToTab($0) },
                     onSelectOverlay: { navigateToOverlay($0) },
+                    onOpenSettings: { openSettings() },
                     onLogout: { showLogoutConfirm = true }
                 )
                 .frame(width: drawerWidth)
@@ -200,41 +197,128 @@ struct MainShell: View {
         }
     }
 
+    private var showsShellTopBar: Bool {
+        shellNavigationDepth == 0 && !isSettingsPresented
+    }
+
     private var mainScaffold: some View {
         VStack(spacing: 0) {
-            if shellNavigationDepth == 0 {
+            if showsShellTopBar {
                 topBar
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
-            tabContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if !onOverlay {
-                bottomBar
+            Group {
+                if let overlayRoute = overlay {
+                    overlayView(overlayRoute)
+                        .transition(LearnMotion.overlaySlide(richAnimations: !reduceMotion))
+                } else {
+                    shellTabView
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background { LearnScreenBackground() }
         .animation(LearnMotion.spatialStandardDefault, value: shellNavigationDepth)
+        .animation(LearnMotion.spatialStandardDefault, value: overlay)
+        .animation(LearnMotion.spatialStandardDefault, value: isSettingsPresented)
         .onPreferenceChange(LearnShellChromeDepthKey.self) { shellNavigationDepth = $0 }
+    }
+
+    /// System floating tab bar with one root stack per tab (reliable hit testing and chrome).
+    private var shellTabView: some View {
+        TabView(selection: $selectedTab) {
+            ForEach(ShellTab.allCases, id: \.self) { tab in
+                shellTabRoot(tab)
+                    .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                    .badge(tab == .messages && messagesTabBadge > 0 ? messagesTabBadge : 0)
+                    .tag(tab)
+            }
+        }
+        .toolbarBackground(.visible, for: .tabBar)
+        .onChange(of: selectedTab) { previous, newTab in
+            guard previous != newTab else { return }
+            LearnHaptics.selection()
+            overlay = nil
+            isSettingsPresented = false
+        }
+    }
+
+    @ViewBuilder
+    private func shellTabRoot(_ tab: ShellTab) -> some View {
+        Group {
+            switch tab {
+            case .home:
+                shellTabContainer(tab: .home) {
+                    HomeScreen(viewModel: homeViewModel, navigation: homeNavigation)
+                }
+            case .timetable:
+                shellTabContainer(tab: .timetable) {
+                    LearnTimetableView(viewModel: timetableViewModel)
+                }
+            case .courses:
+                shellTabContainer(tab: .courses) {
+                    LearnCoursesView(viewModel: coursesViewModel)
+                }
+            case .assessments:
+                shellTabContainer(tab: .assessments) {
+                    LearnAssessmentsView(viewModel: assessmentsViewModel)
+                }
+            case .messages:
+                shellTabContainer(tab: .messages) {
+                    LearnMessagesView(viewModel: messagesViewModel, showCompose: $showMessagesCompose)
+                }
+            }
+        }
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    private func shellTabContainer<Content: View>(
+        tab: ShellTab,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        NavigationStack {
+            content()
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(isPresented: settingsPresentationBinding(for: tab)) {
+                    settingsPage
+                }
+        }
+    }
+
+    private var settingsPage: some View {
+        LearnSettingsView(
+            viewModel: settingsViewModel,
+            onLogout: { showLogoutConfirm = true },
+            onCalendarSyncTap: { showCalendarSync = true }
+        )
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
+    }
+
+    private func settingsPresentationBinding(for tab: ShellTab) -> Binding<Bool> {
+        Binding(
+            get: { selectedTab == tab && isSettingsPresented },
+            set: { isSettingsPresented = $0 }
+        )
     }
 
     @ViewBuilder
     private var topBar: some View {
         Group {
-            if onOverlay {
+            if let overlayRoute = overlay {
                 LearnShellTopBar(
                     leading: .back {
                         withAnimation(LearnMotion.spatialStandardDefault) {
-                            overlay = nil
+                            self.overlay = nil
                         }
                     },
-                    title: overlay?.title ?? ""
+                    title: overlayRoute.title
                 )
             } else if selectedTab == .messages {
                 LearnShellTopBar(
-                    leading: .menu {
-                        LearnHaptics.lightImpact()
-                        isDrawerOpen = true
-                    },
+                    leading: .menu { openDrawer() },
                     title: ShellTab.messages.title,
                     trailing: {
                         Button {
@@ -243,69 +327,43 @@ struct MainShell: View {
                         } label: {
                             Image(systemName: "square.and.pencil")
                                 .font(.body.weight(.semibold))
-                                .frame(width: 32, height: 32)
+                                .frame(width: 40, height: 40)
                         }
-                        .learnPressFeedback(scale: 0.92)
+                        .learnShellTopBarAction("compose")
                         .accessibilityLabel("Compose message")
                     }
                 )
             } else if selectedTab == .home {
                 LearnShellTopBar(
-                    leading: .menu {
-                        LearnHaptics.lightImpact()
-                        isDrawerOpen = true
-                    },
+                    leading: .menu { openDrawer() },
+                    morphAnimationValue: homeViewModel.uiState.selectedDate,
                     center: {
-                        LearnShellHeaderDate(date: homeViewModel.uiState.selectedDate)
+                        LearnShellHeaderDate(
+                            date: homeViewModel.uiState.selectedDate,
+                            style: .toolbar,
+                            alignment: .center
+                        )
                     },
-                    trailing: {
-                        settingsToolbarButton
-                    }
+                    trailing: { settingsToolbarButton }
                 )
             } else if selectedTab == .timetable {
                 LearnShellTopBar(
-                    leading: .menu {
-                        LearnHaptics.lightImpact()
-                        isDrawerOpen = true
-                    },
+                    leading: .menu { openDrawer() },
+                    morphAnimationValue: timetableViewModel.isSelectedDateToday,
                     center: {
-                        LearnShellHeaderDate(date: timetableViewModel.selectedDate)
+                        LearnShellHeaderDate(
+                            date: timetableViewModel.selectedDate,
+                            style: .toolbar,
+                            alignment: .center
+                        )
                     },
-                    trailing: {
-                        HStack(spacing: 2) {
-                            if !timetableViewModel.isSelectedDateToday {
-                                Button("Today") {
-                                    LearnHaptics.selection()
-                                    timetableViewModel.goToToday()
-                                }
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(LearnTheme.Colors.accent)
-                                .learnPressFeedback(scale: 0.96)
-                            }
-                            Button {
-                                LearnHaptics.lightImpact()
-                                showTimetableDatePicker = true
-                            } label: {
-                                Image(systemName: "calendar")
-                                    .font(.body.weight(.medium))
-                                    .frame(width: 32, height: 32)
-                            }
-                            .learnPressFeedback(scale: 0.92)
-                            .accessibilityLabel("Pick date")
-                            settingsToolbarButton
-                        }
-                    }
+                    trailing: { timetableTopBarTrailing }
                 )
             } else {
                 LearnShellTopBar(
-                    leading: .menu {
-                        LearnHaptics.lightImpact()
-                        isDrawerOpen = true
-                    },
+                    leading: .menu { openDrawer() },
                     title: selectedTab.title,
-                    trailing: {
-                        settingsToolbarButton
-                    }
+                    trailing: { settingsToolbarButton }
                 )
             }
         }
@@ -313,40 +371,34 @@ struct MainShell: View {
     }
 
     @ViewBuilder
-    private var tabContent: some View {
-        if let overlay {
-            overlayView(overlay)
-                .transition(LearnMotion.overlaySlide(richAnimations: !reduceMotion))
-        } else {
-            Group {
-                switch selectedTab {
-                case .home:
-                    HomeScreen(
-                        viewModel: homeViewModel,
-                        navigation: homeNavigation
-                    )
-                case .timetable:
-                    LearnTimetableView(viewModel: timetableViewModel)
-                case .courses:
-                    LearnCoursesView(viewModel: coursesViewModel)
-                case .assessments:
-                    LearnAssessmentsView(viewModel: assessmentsViewModel)
-                case .messages:
-                    LearnMessagesView(
-                        viewModel: messagesViewModel,
-                        showCompose: $showMessagesCompose
-                    )
-                }
+    private var timetableTopBarTrailing: some View {
+        if !timetableViewModel.isSelectedDateToday {
+            Button("Today") {
+                LearnHaptics.selection()
+                timetableViewModel.goToToday()
             }
-            .id(selectedTab)
-            .transition(
-                LearnMotion.tabSlide(
-                    forward: tabNavigationForward,
-                    richAnimations: !reduceMotion
-                )
-            )
-            .animation(LearnMotion.spatialStandardDefault, value: selectedTab)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(LearnTheme.Colors.accent)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .learnShellTopBarAction("today", shape: .capsule)
         }
+        Button {
+            LearnHaptics.lightImpact()
+            showTimetableDatePicker = true
+        } label: {
+            Image(systemName: "calendar")
+                .font(.body.weight(.medium))
+                .frame(width: 40, height: 40)
+        }
+        .learnShellTopBarAction("calendar")
+        .accessibilityLabel("Pick date")
+        settingsToolbarButton
+    }
+
+    private var messagesTabBadge: Int {
+        let count = shellViewModel.unreadMessageCount
+        return count > 0 ? count : 0
     }
 
     @ViewBuilder
@@ -356,49 +408,17 @@ struct MainShell: View {
             LearnPortalsView(viewModel: portalsViewModel)
         case .notices:
             LearnNoticesView(viewModel: noticesViewModel)
-        case .settings:
-            NavigationStack {
-                LearnSettingsView(
-                    viewModel: settingsViewModel,
-                    onLogout: { showLogoutConfirm = true },
-                    onCalendarSyncTap: { showCalendarSync = true }
-                )
-            }
         }
-    }
-
-    private var bottomBar: some View {
-        LearnShellBottomBar(
-            selectedTab: Binding(
-                get: { ShellTab.allCases.firstIndex(of: selectedTab) ?? 0 },
-                set: { index in
-                    let tab = ShellTab.allCases[index]
-                    selectTab(tab)
-                }
-            ),
-            tabs: ShellTab.allCases.map { tab in
-                (
-                    title: tab.title,
-                    systemImage: tab.systemImage,
-                    badge: tab == .messages ? shellViewModel.unreadMessageCount : nil
-                )
-            },
-            onSelect: { index in
-                selectTab(ShellTab.allCases[index])
-            }
-        )
     }
 
     private func selectTab(_ tab: ShellTab) {
-        let tabs = ShellTab.allCases
-        let newIndex = tabs.firstIndex(of: tab) ?? 0
-        let oldIndex = tabs.firstIndex(of: selectedTab) ?? 0
-        tabNavigationForward = newIndex >= oldIndex
+        guard tab != selectedTab else { return }
+        LearnHaptics.selection()
         withAnimation(LearnMotion.spatialStandardDefault) {
             selectedTab = tab
             overlay = nil
+            isSettingsPresented = false
         }
-        closeDrawer()
     }
 
     private var homeNavigation: HomeNavigationCallbacks {
@@ -419,13 +439,27 @@ struct MainShell: View {
     }
 
     private var settingsToolbarButton: some View {
-        Button(action: { navigateToOverlay(.settings) }) {
+        Button(action: openSettings) {
             Image(systemName: "gearshape")
                 .font(.body.weight(.medium))
-                .frame(width: 32, height: 32)
+                .frame(width: 40, height: 40)
         }
-        .learnPressFeedback(scale: 0.92)
+        .learnShellTopBarAction("settings")
         .accessibilityLabel("Settings")
+    }
+
+    private func openDrawer() {
+        LearnHaptics.lightImpact()
+        isDrawerOpen = true
+    }
+
+    private func openSettings() {
+        LearnHaptics.lightImpact()
+        withAnimation(LearnMotion.spatialStandardDefault) {
+            overlay = nil
+            isSettingsPresented = true
+        }
+        closeDrawer()
     }
 
     private func closeDrawer() {
@@ -434,6 +468,7 @@ struct MainShell: View {
 
     private func navigateToTab(_ tab: ShellTab) {
         selectTab(tab)
+        closeDrawer()
     }
 
     private func navigateToOverlay(_ route: ShellOverlay) {
@@ -449,6 +484,8 @@ struct MainShell: View {
             navigateToTab(tab)
         case .overlay(let overlayRoute):
             navigateToOverlay(overlayRoute)
+        case .settings:
+            openSettings()
         }
     }
 }
