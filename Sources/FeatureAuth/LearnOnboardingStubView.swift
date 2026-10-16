@@ -1,15 +1,13 @@
 import CoreDesign
 import SwiftUI
 
-/// First-run welcome carousel + optional school URL (stored locally for sign-in).
+/// First-run welcome carousel (school URL is collected on the sign-in screen only).
 public struct LearnOnboardingStubView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @StateObject private var loginViewModel = LoginViewModel()
     @State private var step = 0
-    @State private var schoolUrl = ""
 
     private let onContinue: () -> Void
-    private let pageCount = 3
+    private let pageCount = 2
 
     private var motionProfile: LearnMotionProfile {
         LearnMotionProfile.current(reduceMotion: reduceMotion)
@@ -36,12 +34,6 @@ public struct LearnOnboardingStubView: View {
         }
         .background { LearnScreenBackground() }
         .environment(\.learnMotionProfile, motionProfile)
-        .onAppear {
-            let remembered = loginViewModel.rememberedSchoolUrl
-            if schoolUrl.isEmpty, !remembered.isEmpty {
-                schoolUrl = remembered
-            }
-        }
     }
 
     private var header: some View {
@@ -66,8 +58,7 @@ public struct LearnOnboardingStubView: View {
     private var stepIcon: String {
         switch step {
         case 0: "calendar"
-        case 1: "person.badge.key.fill"
-        default: "link"
+        default: "person.badge.key.fill"
         }
     }
 
@@ -97,13 +88,11 @@ public struct LearnOnboardingStubView: View {
             onboardingPage(
                 tag: 1,
                 title: "Sign in your way",
-                detail: "Use your school web login, saved credentials, or a QR / connect link from your school."
+                detail: "Use your school web login, saved credentials, or a QR / connect link from your school. You’ll enter your school SEQTA address on the next screen when you sign in."
             )
-            schoolUrlPage
-                .tag(2)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .frame(minHeight: step == 2 ? 220 : 140)
+        .frame(minHeight: 140)
         .animation(LearnMotion.entranceAnimation(profile: motionProfile), value: step)
     }
 
@@ -118,25 +107,6 @@ public struct LearnOnboardingStubView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .tag(tag)
-    }
-
-    private var schoolUrlPage: some View {
-        VStack(alignment: .leading, spacing: LearnTheme.Spacing.sm) {
-            Text("Remember your school")
-                .font(.headline)
-                .foregroundStyle(LearnTheme.Colors.primaryText)
-            Text("Add your school SEQTA address once — stored on this device only to speed up sign-in.")
-                .font(.subheadline)
-                .foregroundStyle(LearnTheme.Colors.secondaryText)
-            UrlEntryView(
-                title: "School SEQTA URL",
-                text: $schoolUrl
-            )
-            Text("You can change this later from the sign-in screen.")
-                .font(.caption)
-                .foregroundStyle(LearnTheme.Colors.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var stepControls: some View {
@@ -158,17 +128,9 @@ public struct LearnOnboardingStubView: View {
                 }
                 .buttonStyle(LearnPrimaryButtonStyle())
             } else {
-                Button("Get started", action: continueTapped)
+                Button("Get started", action: onContinue)
                     .buttonStyle(LearnPrimaryButtonStyle())
             }
         }
-    }
-
-    private func continueTapped() {
-        let trimmed = schoolUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            loginViewModel.rememberSchoolUrl(trimmed)
-        }
-        onContinue()
     }
 }

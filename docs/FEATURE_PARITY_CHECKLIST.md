@@ -4,7 +4,7 @@ Mark each item when iOS matches Android behavior. Android paths are under `Bette
 
 ## Auth (`FeatureAuth`)
 
-- [~] School URL onboarding — 3-step welcome (`LearnOnboardingStubView`) + URL on final step saves `learn.rememberedSchoolUrl`; not full Android marketing carousel
+- [~] Onboarding — 2-step welcome (`LearnOnboardingStubView`); school URL only on sign-in (`LearnLoginView` → `learn.rememberedSchoolUrl`)
 - [x] QR login — `LearnQRCodeScannerView` (live camera) + paste fallback (`QRScannerEntryView`)
 - [x] Connect / SSO deeplinks — `AuthRepositoryLive` + `ContentView.handleDeeplink` (QR vs connect by prefix)
 - [x] WebView session cookie import — `LoginWebView` + `WebSessionCookieParser` → session save
