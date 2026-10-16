@@ -400,17 +400,131 @@ public enum AssessmentDisplayStatus: String, Sendable, Equatable, Codable {
     case marked = "Marked"
 }
 
+public struct AssessmentRubricDescriptor: Sendable, Equatable, Codable, Identifiable {
+    public let id: Int
+    public let score: Int?
+    public let grade: String?
+    public let content: String?
+
+    public init(id: Int, score: Int? = nil, grade: String? = nil, content: String? = nil) {
+        self.id = id
+        self.score = score
+        self.grade = grade
+        self.content = content
+    }
+}
+
+public struct AssessmentRubricLine: Sendable, Equatable, Codable, Identifiable {
+    public let id: Int
+    public let title: String?
+    public let content: String?
+    public let weight: Int?
+    public let descriptors: [AssessmentRubricDescriptor]
+
+    public init(
+        id: Int,
+        title: String? = nil,
+        content: String? = nil,
+        weight: Int? = nil,
+        descriptors: [AssessmentRubricDescriptor] = []
+    ) {
+        self.id = id
+        self.title = title
+        self.content = content
+        self.weight = weight
+        self.descriptors = descriptors
+    }
+}
+
+public struct AssessmentRubric: Sendable, Equatable, Codable {
+    public let lines: [AssessmentRubricLine]
+
+    public init(lines: [AssessmentRubricLine]) {
+        self.lines = lines
+    }
+
+    public var activeLines: [AssessmentRubricLine] {
+        lines
+    }
+}
+
+/// Selected rubric cell for one criterion line (SEQTA `rubricScore` entry).
+public struct AssessmentRubricScore: Sendable, Equatable, Codable {
+    public let descriptorId: Int
+    public let grade: String?
+    public let score: Int?
+    public let content: String?
+
+    public init(descriptorId: Int, grade: String? = nil, score: Int? = nil, content: String? = nil) {
+        self.descriptorId = descriptorId
+        self.grade = grade
+        self.score = score
+        self.content = content
+    }
+}
+
 public struct AssessmentCriterion: Sendable, Equatable, Codable {
+    public let id: Int?
     public let name: String
     public let description: String?
     public let grade: String?
     public let percentage: Int?
+    public let availableGrades: [String]
+    public let rubric: AssessmentRubric?
+    /// Keys are rubric line ids as strings (SEQTA payload shape).
+    public let rubricScores: [String: AssessmentRubricScore]
 
-    public init(name: String, description: String?, grade: String?, percentage: Int?) {
+    public init(
+        id: Int? = nil,
+        name: String,
+        description: String?,
+        grade: String?,
+        percentage: Int?,
+        availableGrades: [String] = [],
+        rubric: AssessmentRubric? = nil,
+        rubricScores: [String: AssessmentRubricScore] = [:]
+    ) {
+        self.id = id
         self.name = name
         self.description = description
         self.grade = grade
         self.percentage = percentage
+        self.availableGrades = availableGrades
+        self.rubric = rubric
+        self.rubricScores = rubricScores
+    }
+
+    public var hasRubricTable: Bool {
+        guard let rubric else { return false }
+        return rubric.activeLines.contains { !$0.descriptors.isEmpty }
+    }
+}
+
+public struct AssessmentSubmissionFile: Sendable, Equatable, Codable, Identifiable {
+    public let id: Int
+    public let filename: String
+    public let mimeType: String
+    public let sizeBytes: Int?
+    public let uuid: String?
+    public let createdDate: String?
+    public let isStaff: Bool
+
+    public init(
+        id: Int,
+        filename: String,
+        mimeType: String,
+        sizeBytes: Int? = nil,
+        uuid: String? = nil,
+        createdDate: String? = nil,
+        isStaff: Bool = false
+    ) {
+        self.id = id
+        self.filename = filename
+        self.mimeType = mimeType
+        self.sizeBytes = sizeBytes
+        self.uuid = uuid
+        self.createdDate = createdDate
+        self.isStaff = isStaff
     }
 }
 
@@ -429,6 +543,9 @@ public struct AssessmentDetail: Sendable, Equatable, Codable {
     public let feedbackComment: String?
     public let expectations: [String]
     public let criteria: [AssessmentCriterion]
+    public let availableGrades: [String]
+    public let fileSubmissionEnabled: Bool
+    public let submissions: [AssessmentSubmissionFile]
 
     public init(
         id: Int,
@@ -444,7 +561,10 @@ public struct AssessmentDetail: Sendable, Equatable, Codable {
         overallPercentage: Int? = nil,
         feedbackComment: String? = nil,
         expectations: [String] = [],
-        criteria: [AssessmentCriterion] = []
+        criteria: [AssessmentCriterion] = [],
+        availableGrades: [String] = [],
+        fileSubmissionEnabled: Bool = false,
+        submissions: [AssessmentSubmissionFile] = []
     ) {
         self.id = id
         self.title = title
@@ -460,6 +580,17 @@ public struct AssessmentDetail: Sendable, Equatable, Codable {
         self.feedbackComment = feedbackComment
         self.expectations = expectations
         self.criteria = criteria
+        self.availableGrades = availableGrades
+        self.fileSubmissionEnabled = fileSubmissionEnabled
+        self.submissions = submissions
+    }
+
+    public var studentSubmissions: [AssessmentSubmissionFile] {
+        submissions.filter { !$0.isStaff }
+    }
+
+    public var criteriaWithRubrics: [AssessmentCriterion] {
+        criteria.filter(\.hasRubricTable)
     }
 }
 

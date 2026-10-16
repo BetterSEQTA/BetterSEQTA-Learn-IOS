@@ -38,6 +38,7 @@ public protocol StudentRepository: Sendable {
     func moveMessagesToLabel(ids: [Int], label: String) async -> AppResult<Void>
     func downloadMessageAttachment(uuid: String) async -> AppResult<Data>
     func downloadCourseResourceFile(uuid: String) async -> AppResult<Data>
+    func downloadAssessmentSubmissionFile(uuid: String) async -> AppResult<Data>
     func loadMessageRecipients(mode: String) async -> AppResult<[MessageRecipient]>
     func uploadMessageComposeFile(filename: String, data: Data) async -> AppResult<MessageComposeAttachment>
     func sendMessage(

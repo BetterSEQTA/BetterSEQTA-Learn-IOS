@@ -126,6 +126,10 @@ public struct CachingStudentRepository: StudentRepository, Sendable {
         await live.downloadCourseResourceFile(uuid: uuid)
     }
 
+    public func downloadAssessmentSubmissionFile(uuid: String) async -> AppResult<Data> {
+        await live.downloadAssessmentSubmissionFile(uuid: uuid)
+    }
+
     public func loadMessageRecipients(mode: String) async -> AppResult<[MessageRecipient]> {
         await live.loadMessageRecipients(mode: mode)
     }

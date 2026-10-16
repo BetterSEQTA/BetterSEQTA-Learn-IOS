@@ -271,6 +271,67 @@ final class SeqtaResponseParsersTests: XCTestCase {
         XCTAssertFalse(SeqtaResponseParsers.hasSubmissionEntries(payload: [:]))
     }
 
+    func testParseAssessmentSubmissionsReadsStudentFiles() throws {
+        let payload: [[String: Any]] = [
+            [
+                "id": 42,
+                "filename": "essay.pdf",
+                "mimetype": "application/pdf",
+                "size": "2048",
+                "uuid": "abc-uuid",
+                "staff": false,
+            ],
+            [
+                "id": 43,
+                "filename": "feedback.pdf",
+                "mimetype": "application/pdf",
+                "size": 1024,
+                "staff": true,
+            ],
+        ]
+        let files = SeqtaResponseParsers.parseAssessmentSubmissions(payload: payload)
+        XCTAssertEqual(files.count, 2)
+        XCTAssertEqual(files[0].filename, "essay.pdf")
+        XCTAssertFalse(files[0].isStaff)
+        XCTAssertTrue(files[1].isStaff)
+    }
+
+    func testParseAssessmentDetailReadsRubricAndSubmissionSettings() throws {
+        let payload: [String: Any] = [
+            "title": "Rubric task",
+            "code": "ENG",
+            "submissionSettings": ["fileSubmissionEnabled": true],
+            "availableGrades": ["A", "B", "C"],
+            "criteria": [
+                [
+                    "label": "Analysis",
+                    "rubric": [
+                        "lines": [
+                            [
+                                "id": 1,
+                                "title": "Evidence",
+                                "descriptors": [
+                                    ["id": 10, "grade": "A", "content": "Excellent"],
+                                    ["id": 11, "grade": "B", "content": "Good"],
+                                ],
+                            ],
+                        ],
+                    ],
+                    "rubricScore": [
+                        "1": ["id": 10, "grade": "A"],
+                    ],
+                ],
+            ],
+        ]
+        let fallback = Assessment(id: 1, title: "x", subjectCode: "ENG", dueDate: nil, status: nil)
+        let detail = SeqtaResponseParsers.parseAssessmentDetail(payload: payload, fallback: fallback)
+        XCTAssertTrue(detail.fileSubmissionEnabled)
+        XCTAssertEqual(detail.availableGrades, ["A", "B", "C"])
+        XCTAssertEqual(detail.criteria.count, 1)
+        XCTAssertTrue(detail.criteria[0].hasRubricTable)
+        XCTAssertEqual(detail.criteria[0].rubricScores["1"]?.descriptorId, 10)
+    }
+
     func testParseAssessmentListReadsCriteriaResultsPercentage() throws {
         let payload: [String: Any] = [
             "tasks": [

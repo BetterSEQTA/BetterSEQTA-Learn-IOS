@@ -145,7 +145,9 @@ public struct StudentRepositoryLive: StudentRepository, Sendable {
             ]
             let (submissionsData, _) = try await client.post(.getSubmissions, body: submissionsBody)
             let submissionsPayload = try JSONObjectHelpers.seqtaPayload(from: submissionsData)
-            let submitted = SeqtaResponseParsers.hasSubmissionEntries(payload: submissionsPayload)
+            let submissionFiles = SeqtaResponseParsers.parseAssessmentSubmissions(payload: submissionsPayload)
+            let submitted = !submissionFiles.isEmpty
+                || SeqtaResponseParsers.hasSubmissionEntries(payload: submissionsPayload)
 
             let subject = subjects.first { $0.code == (parsed.subjectCode) }
             let mergedAssessment = Assessment(
@@ -175,7 +177,12 @@ public struct StudentRepositoryLive: StudentRepository, Sendable {
                 overallPercentage: parsed.percentage,
                 feedbackComment: parsed.feedbackComment,
                 expectations: parsed.expectations,
-                criteria: parsed.criteria
+                criteria: parsed.criteria,
+                availableGrades: parsed.availableGrades.isEmpty
+                    ? (parsed.criteria.first?.availableGrades ?? [])
+                    : parsed.availableGrades,
+                fileSubmissionEnabled: parsed.fileSubmissionEnabled,
+                submissions: submissionFiles
             )
         }
     }
@@ -324,6 +331,10 @@ public struct StudentRepositoryLive: StudentRepository, Sendable {
 
     public func downloadCourseResourceFile(uuid: String) async -> AppResult<Data> {
         await downloadSeqtaFile { try await $0.downloadCourseResourceFile(uuid: uuid) }
+    }
+
+    public func downloadAssessmentSubmissionFile(uuid: String) async -> AppResult<Data> {
+        await downloadSeqtaFile { try await $0.downloadAssessmentSubmissionFile(uuid: uuid) }
     }
 
     private func downloadSeqtaFile(

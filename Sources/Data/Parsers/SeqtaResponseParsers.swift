@@ -57,6 +57,8 @@ public enum SeqtaResponseParsers {
         public let expectations: [String]
         public let criteria: [AssessmentCriterion]
         public let resolvedMetaclass: Int?
+        public let availableGrades: [String]
+        public let fileSubmissionEnabled: Bool
     }
 
     public static func parseAssessmentDetail(payload: Any?, fallback: Assessment) -> AssessmentDetailFields {
@@ -78,6 +80,9 @@ public enum SeqtaResponseParsers {
                 return JSONObjectHelpers.string(object, keys: "name", "label", "title")
             }
         let resolvedMetaclass = JSONObjectHelpers.int(root, keys: "metaclass")
+        let availableGrades = parseAvailableGrades(root)
+        let submissionSettings = JSONObjectHelpers.nestedObject(root, keys: "submissionSettings")
+        let fileSubmissionEnabled = JSONObjectHelpers.bool(submissionSettings ?? [:], key: "fileSubmissionEnabled") ?? false
         return AssessmentDetailFields(
             title: title,
             description: description,
@@ -89,8 +94,25 @@ public enum SeqtaResponseParsers {
             feedbackComment: feedbackComment,
             expectations: expectations,
             criteria: criteria,
-            resolvedMetaclass: resolvedMetaclass
+            resolvedMetaclass: resolvedMetaclass,
+            availableGrades: availableGrades,
+            fileSubmissionEnabled: fileSubmissionEnabled
         )
+    }
+
+    public static func parseAssessmentSubmissions(payload: Any?) -> [AssessmentSubmissionFile] {
+        let rows: [Any]
+        if let array = payload as? [Any] {
+            rows = array
+        } else if let object = payload as? JSONObject {
+            rows = JSONObjectHelpers.array(object, keys: "items", "files", "submissions") ?? []
+        } else {
+            return []
+        }
+        return rows.compactMap { element in
+            guard let row = element as? JSONObject else { return nil }
+            return parseAssessmentSubmissionRow(row)
+        }
     }
 
     public static func hasSubmissionEntries(payload: Any?) -> Bool {
@@ -409,11 +431,95 @@ public enum SeqtaResponseParsers {
     private static func parseAssessmentCriterion(_ row: JSONObject) -> AssessmentCriterion? {
         guard let name = JSONObjectHelpers.string(row, keys: "name", "label") else { return nil }
         let results = JSONObjectHelpers.nestedObject(row, keys: "results")
+        let availableGrades = parseAvailableGrades(row)
         return AssessmentCriterion(
+            id: JSONObjectHelpers.int(row, keys: "id"),
             name: name,
             description: JSONObjectHelpers.string(row, keys: "description"),
             grade: JSONObjectHelpers.string(results ?? [:], keys: "grade") ?? JSONObjectHelpers.string(row, keys: "grade"),
-            percentage: JSONObjectHelpers.int(results ?? [:], keys: "percentage") ?? JSONObjectHelpers.int(row, keys: "percentage")
+            percentage: JSONObjectHelpers.int(results ?? [:], keys: "percentage") ?? JSONObjectHelpers.int(row, keys: "percentage"),
+            availableGrades: availableGrades,
+            rubric: parseAssessmentRubric(row),
+            rubricScores: parseRubricScores(row)
+        )
+    }
+
+    private static func parseAvailableGrades(_ row: JSONObject) -> [String] {
+        guard let raw = JSONObjectHelpers.array(row, keys: "availableGrades") else { return [] }
+        return raw.compactMap { element in
+            if let string = element as? String { return string }
+            if let object = element as? JSONObject {
+                return JSONObjectHelpers.string(object, keys: "grade", "label", "name")
+            }
+            return nil
+        }
+    }
+
+    private static func parseAssessmentRubric(_ row: JSONObject) -> AssessmentRubric? {
+        guard let rubricObject = JSONObjectHelpers.nestedObject(row, keys: "rubric") else { return nil }
+        let lineRows = JSONObjectHelpers.array(rubricObject, keys: "lines") ?? []
+        let lines: [AssessmentRubricLine] = lineRows.compactMap { element in
+            guard let lineRow = element as? JSONObject,
+                  let id = JSONObjectHelpers.int(lineRow, keys: "id") else { return nil }
+            if JSONObjectHelpers.bool(lineRow, key: "deleted") == true { return nil }
+            let descriptorRows = JSONObjectHelpers.array(lineRow, keys: "descriptors") ?? []
+            let descriptors: [AssessmentRubricDescriptor] = descriptorRows.compactMap { descriptorElement in
+                guard let descriptorRow = descriptorElement as? JSONObject,
+                      let descriptorId = JSONObjectHelpers.int(descriptorRow, keys: "id") else { return nil }
+                return AssessmentRubricDescriptor(
+                    id: descriptorId,
+                    score: JSONObjectHelpers.int(descriptorRow, keys: "score"),
+                    grade: JSONObjectHelpers.string(descriptorRow, keys: "grade"),
+                    content: JSONObjectHelpers.string(descriptorRow, keys: "content")
+                )
+            }
+            return AssessmentRubricLine(
+                id: id,
+                title: JSONObjectHelpers.string(lineRow, keys: "title"),
+                content: JSONObjectHelpers.string(lineRow, keys: "content"),
+                weight: JSONObjectHelpers.int(lineRow, keys: "weight"),
+                descriptors: descriptors
+            )
+        }
+        guard !lines.isEmpty else { return nil }
+        return AssessmentRubric(lines: lines)
+    }
+
+    private static func parseRubricScores(_ row: JSONObject) -> [String: AssessmentRubricScore] {
+        guard let scoreObject = row["rubricScore"] as? JSONObject else { return [:] }
+        var scores: [String: AssessmentRubricScore] = [:]
+        for (key, value) in scoreObject {
+            guard let entry = value as? JSONObject,
+                  let descriptorId = JSONObjectHelpers.int(entry, keys: "id") else { continue }
+            scores[key] = AssessmentRubricScore(
+                descriptorId: descriptorId,
+                grade: JSONObjectHelpers.string(entry, keys: "grade"),
+                score: JSONObjectHelpers.int(entry, keys: "score"),
+                content: JSONObjectHelpers.string(entry, keys: "content")
+            )
+        }
+        return scores
+    }
+
+    private static func parseAssessmentSubmissionRow(_ row: JSONObject) -> AssessmentSubmissionFile? {
+        let fileId = JSONObjectHelpers.int(row, keys: "id", "userfile", "fileId")
+        let filename = JSONObjectHelpers.string(row, keys: "filename", "name") ?? "File"
+        let mimeType = JSONObjectHelpers.string(row, keys: "mimetype", "mimeType") ?? "application/octet-stream"
+        let sizeBytes = JSONObjectHelpers.int(row, keys: "size")
+            ?? Int(JSONObjectHelpers.string(row, keys: "size") ?? "")
+        let uuid = JSONObjectHelpers.string(row, keys: "uuid")
+        let createdDate = JSONObjectHelpers.string(row, keys: "created_date", "createdDate")
+        let isStaff = JSONObjectHelpers.bool(row, key: "staff") ?? false
+        let resolvedId = fileId ?? uuid.map { abs($0.hashValue) }
+        guard let id = resolvedId else { return nil }
+        return AssessmentSubmissionFile(
+            id: id,
+            filename: filename,
+            mimeType: mimeType,
+            sizeBytes: sizeBytes,
+            uuid: uuid,
+            createdDate: createdDate,
+            isStaff: isStaff
         )
     }
 

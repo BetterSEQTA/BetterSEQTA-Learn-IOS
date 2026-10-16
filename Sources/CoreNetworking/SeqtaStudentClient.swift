@@ -63,6 +63,10 @@ public struct SeqtaStudentClient: Sendable {
         try await downloadStudentFile(type: "resource", uuid: uuid)
     }
 
+    public func downloadAssessmentSubmissionFile(uuid: String) async throws -> (Data, HTTPURLResponse) {
+        try await downloadStudentFile(type: "submission", uuid: uuid)
+    }
+
     public func uploadComposeFile(filename: String, fileData: Data) async throws -> (Data, HTTPURLResponse) {
         let (data, response) = try await learnSeqtaUploadFile(
             session: session,
