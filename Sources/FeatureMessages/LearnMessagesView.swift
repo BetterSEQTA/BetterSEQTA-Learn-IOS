@@ -12,10 +12,7 @@ public struct LearnMessagesView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            messagesChrome
-            messageList
-        }
+        messageList
         .background { LearnScreenBackground() }
         .learnShellNavigationDepth(0)
         .navigationDestination(for: MessageSummary.self) { message in
@@ -31,50 +28,6 @@ public struct LearnMessagesView: View {
                 viewModel: LearnComposeMessageViewModel(repository: viewModel.studentRepository)
             )
         }
-    }
-
-    private var messagesChrome: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 8) {
-                mailSearchField
-                if viewModel.unreadCount > 0 {
-                    Text("\(viewModel.unreadCount)")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(LearnTheme.Colors.accent, in: Capsule())
-                        .contentTransition(.numericText())
-                        .accessibilityLabel("\(viewModel.unreadCount) unread")
-                }
-            }
-            .padding(.horizontal, LearnLayout.horizontalPadding)
-            folderRail
-        }
-        .padding(.top, 4)
-        .padding(.bottom, 6)
-        .overlay(alignment: .bottom) {
-            LearnSeparatorHairline()
-        }
-    }
-
-    private var mailSearchField: some View {
-        LearnSearchField(text: $viewModel.searchQuery, compact: true, onChange: {
-            viewModel.scheduleSearchReload()
-        })
-        .learnComposeMaterial(cornerRadius: LearnTheme.controlCornerRadius)
-    }
-
-    private var folderRail: some View {
-        LearnUnderlineSegmentBar(
-            items: MessageFolder.allCases.map { ($0, $0.label) },
-            selection: viewModel.selectedFolder,
-            density: .compact,
-            style: .fluid
-        ) { folder in
-            viewModel.selectFolder(folder)
-        }
-        .padding(.horizontal, LearnLayout.horizontalPadding)
     }
 
     @ViewBuilder

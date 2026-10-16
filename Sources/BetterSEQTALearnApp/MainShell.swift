@@ -206,6 +206,10 @@ struct MainShell: View {
             if showsShellTopBar {
                 topBar
                     .transition(.move(edge: .top).combined(with: .opacity))
+                if selectedTab == .messages, overlay == nil {
+                    LearnMessagesListChrome(viewModel: messagesViewModel)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
             Group {
                 if let overlayRoute = overlay {
@@ -221,6 +225,7 @@ struct MainShell: View {
         .animation(LearnMotion.spatialStandardDefault, value: shellNavigationDepth)
         .animation(LearnMotion.spatialStandardDefault, value: overlay)
         .animation(LearnMotion.spatialStandardDefault, value: isSettingsPresented)
+        .animation(LearnMotion.spatialStandardDefault, value: selectedTab)
         .onPreferenceChange(LearnShellChromeDepthKey.self) { shellNavigationDepth = $0 }
     }
 
