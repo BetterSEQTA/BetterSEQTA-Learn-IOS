@@ -1,23 +1,32 @@
 import Domain
 import SwiftUI
 
+public enum LearnTimetableLessonVisualState: Sendable, Equatable {
+    case past
+    case current
+    case upcoming
+}
+
 /// Proportional day column: block height matches lesson duration; overlapping lessons share width.
 public struct LearnTimetableDayGrid: View {
     public let lessons: [TimetableLesson]
     public let minuteHeight: CGFloat
     public let showNowIndicator: Bool
     public let referenceDate: Date
+    public let lessonState: (TimetableLesson) -> LearnTimetableLessonVisualState
 
     public init(
         lessons: [TimetableLesson],
-        minuteHeight: CGFloat = 1.2,
+        minuteHeight: CGFloat = 1.45,
         showNowIndicator: Bool = false,
-        referenceDate: Date = .now
+        referenceDate: Date = .now,
+        lessonState: @escaping (TimetableLesson) -> LearnTimetableLessonVisualState = { _ in .upcoming }
     ) {
         self.lessons = lessons
         self.minuteHeight = minuteHeight
         self.showNowIndicator = showNowIndicator
         self.referenceDate = referenceDate
+        self.lessonState = lessonState
     }
 
     public var body: some View {
@@ -25,35 +34,34 @@ public struct LearnTimetableDayGrid: View {
         let placements = LearnTimetableConflictLayout.placements(
             lessons: lessons,
             layout: layout,
-            horizontalGap: 4
+            horizontalGap: 5
         )
         let nowOffset = showNowIndicator ? layout.yOffset(for: referenceDate) : nil
+        let scrollAnchor = scrollTargetOffset(layout: layout, nowOffset: nowOffset)
 
-        ScrollView {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .trailing, spacing: 0) {
-                    ForEach(layout.hourMarkers, id: \.self) { marker in
-                        Text(marker)
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(LearnTheme.Colors.secondaryText)
-                            .frame(height: 60 * minuteHeight, alignment: .top)
-                    }
-                }
-                .frame(width: 44)
+        ScrollViewReader { proxy in
+            ScrollView {
+                HStack(alignment: .top, spacing: 10) {
+                    timeRail(layout: layout)
 
-                GeometryReader { geometry in
-                    let columnWidth = geometry.size.width
+                    GeometryReader { geometry in
+                        let columnWidth = geometry.size.width
 
-                    ZStack(alignment: .topLeading) {
-                        ForEach(layout.hourMarkers.indices, id: \.self) { index in
-                            Rectangle()
-                                .fill(LearnTheme.Colors.glassStroke.opacity(0.45))
-                                .frame(height: 0.5)
-                                .offset(y: CGFloat(index) * 60 * minuteHeight)
-                        }
+                        ZStack(alignment: .topLeading) {
+                            hourBands(layout: layout)
 
-                        ForEach(placements, id: \.lesson.id) { placement in
-                            LearnTimetableBlock(lesson: placement.lesson)
+                            ForEach(layout.hourMarkers.indices, id: \.self) { index in
+                                Rectangle()
+                                    .fill(LearnTheme.Colors.glassStroke.opacity(0.5))
+                                    .frame(height: 0.5)
+                                    .offset(y: CGFloat(index) * 60 * minuteHeight)
+                            }
+
+                            ForEach(placements, id: \.lesson.id) { placement in
+                                LearnTimetableBlock(
+                                    lesson: placement.lesson,
+                                    visualState: lessonState(placement.lesson)
+                                )
                                 .frame(
                                     width: placement.rect.width * columnWidth,
                                     height: placement.rect.height,
@@ -63,31 +71,94 @@ public struct LearnTimetableDayGrid: View {
                                     x: placement.rect.minX * columnWidth,
                                     y: placement.rect.minY
                                 )
-                        }
+                            }
 
-                        if let nowOffset, nowOffset >= 0, nowOffset <= layout.totalHeight {
-                            LearnTimetableNowLine()
-                                .offset(y: nowOffset)
+                            if let nowOffset, nowOffset >= 0, nowOffset <= layout.totalHeight {
+                                LearnTimetableNowLine()
+                                    .offset(y: nowOffset)
+                                    .id("timetable-now")
+                            }
+
+                            Color.clear
+                                .frame(width: 1, height: 1)
+                                .offset(y: scrollAnchor)
+                                .id("timetable-scroll-anchor")
                         }
+                        .frame(width: columnWidth, height: layout.totalHeight, alignment: .topLeading)
                     }
-                    .frame(width: columnWidth, height: layout.totalHeight, alignment: .topLeading)
+                    .frame(height: layout.totalHeight)
                 }
-                .frame(height: layout.totalHeight)
+                .padding(.horizontal, LearnLayout.horizontalPadding)
+                .padding(.vertical, LearnTheme.Spacing.sm)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, LearnLayout.horizontalPadding)
-            .padding(.vertical, LearnTheme.Spacing.sm)
+            .onAppear {
+                scrollToAnchor(proxy: proxy, offset: scrollAnchor, layout: layout)
+            }
+            .onChange(of: lessons) { _, _ in
+                scrollToAnchor(proxy: proxy, offset: scrollAnchor, layout: layout)
+            }
+        }
+    }
+
+    private func timeRail(layout: LearnTimetableDayLayout) -> some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            ForEach(layout.hourMarkers, id: \.self) { marker in
+                Text(marker)
+                    .font(.caption2.weight(.medium).monospacedDigit())
+                    .foregroundStyle(LearnTheme.Colors.secondaryText)
+                    .frame(height: 60 * minuteHeight, alignment: .top)
+                    .padding(.top, -2)
+            }
+        }
+        .frame(width: 40)
+    }
+
+    private func hourBands(layout: LearnTimetableDayLayout) -> some View {
+        ForEach(layout.hourMarkers.indices, id: \.self) { index in
+            if index.isMultiple(of: 2) {
+                Rectangle()
+                    .fill(LearnTheme.Colors.groupedFill.opacity(0.35))
+                    .frame(height: 60 * minuteHeight)
+                    .offset(y: CGFloat(index) * 60 * minuteHeight)
+            }
+        }
+    }
+
+    private func scrollTargetOffset(layout: LearnTimetableDayLayout, nowOffset: CGFloat?) -> CGFloat {
+        if let nowOffset, nowOffset >= 0, nowOffset <= layout.totalHeight {
+            return max(0, nowOffset - 120)
+        }
+        if let first = lessons.first, let frame = layout.frame(for: first) {
+            return max(0, frame.minY - 24)
+        }
+        return 0
+    }
+
+    private func scrollToAnchor(proxy: ScrollViewProxy, offset: CGFloat, layout: LearnTimetableDayLayout) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation(LearnMotion.spatialStandardDefault) {
+                proxy.scrollTo("timetable-scroll-anchor", anchor: .top)
+            }
         }
     }
 }
 
 private struct LearnTimetableNowLine: View {
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
             Circle()
                 .fill(LearnTheme.Colors.accent)
-                .frame(width: 8, height: 8)
+                .frame(width: 9, height: 9)
+                .shadow(color: LearnTheme.Colors.accent.opacity(0.45), radius: 4)
             Rectangle()
-                .fill(LearnTheme.Colors.accent)
+                .fill(
+                    LinearGradient(
+                        colors: [LearnTheme.Colors.accent, LearnTheme.Colors.accent.opacity(0.15)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
                 .frame(height: 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,55 +168,103 @@ private struct LearnTimetableNowLine: View {
 
 struct LearnTimetableBlock: View {
     let lesson: TimetableLesson
+    let visualState: LearnTimetableLessonVisualState
 
     private var accent: Color {
         LearnSubjectColour.parse(lesson.colour)
+    }
+
+    private var isCompact: Bool {
+        lesson.durationMinutes < 40
+    }
+
+    private var opacity: Double {
+        switch visualState {
+        case .past: 0.55
+        case .current: 1
+        case .upcoming: 0.92
+        }
     }
 
     var body: some View {
         HStack(spacing: 0) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accent)
-                .frame(width: 3)
-            VStack(alignment: .leading, spacing: 3) {
-                if let range = lesson.displayTimeRange {
-                    Text(range)
-                        .font(.caption2.monospacedDigit().weight(.medium))
-                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                        .lineLimit(1)
+                .frame(width: visualState == .current ? 4 : 3)
+            VStack(alignment: .leading, spacing: isCompact ? 2 : 4) {
+                HStack(spacing: 6) {
+                    if let range = lesson.displayTimeRange {
+                        Text(range)
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(
+                                visualState == .current ? accent : LearnTheme.Colors.secondaryText
+                            )
+                            .lineLimit(1)
+                    }
+                    if !lesson.subjectCode.isEmpty, !isCompact {
+                        Text(lesson.subjectCode)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(accent.opacity(0.15), in: Capsule())
+                    }
                 }
                 Text(lesson.title)
-                    .font(.caption.weight(.semibold))
+                    .font(isCompact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
                     .foregroundStyle(LearnTheme.Colors.primaryText)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.85)
-                if let teacher = lesson.teacherName, !teacher.isEmpty, lesson.durationMinutes >= 35 {
-                    Text(teacher)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(LearnTheme.Colors.secondaryText)
-                        .lineLimit(1)
-                }
-                if let room = lesson.room, !room.isEmpty, lesson.durationMinutes >= 50 {
-                    Label(room, systemImage: "mappin.and.ellipse")
+                    .lineLimit(isCompact ? 2 : 3)
+                    .minimumScaleFactor(0.8)
+                if !isCompact {
+                    if let teacher = lesson.teacherName, !teacher.isEmpty {
+                        Label(teacher, systemImage: "person")
+                            .font(.caption2)
+                            .foregroundStyle(LearnTheme.Colors.secondaryText)
+                            .lineLimit(1)
+                    }
+                    if let room = lesson.room, !room.isEmpty {
+                        Label(room, systemImage: "mappin.and.ellipse")
+                            .font(.caption2)
+                            .foregroundStyle(LearnTheme.Colors.secondaryText)
+                            .lineLimit(1)
+                    }
+                } else if let room = lesson.room, !room.isEmpty {
+                    Text(room)
                         .font(.caption2)
                         .foregroundStyle(LearnTheme.Colors.secondaryText)
                         .lineLimit(1)
-                        .labelStyle(.titleAndIcon)
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .padding(.vertical, isCompact ? 5 : 8)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .opacity(opacity)
         .background(
             RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius, style: .continuous)
-                .fill(accent.opacity(0.12))
+                .fill(accent.opacity(visualState == .current ? 0.22 : 0.12))
         )
         .overlay(
             RoundedRectangle(cornerRadius: LearnTheme.controlCornerRadius, style: .continuous)
-                .strokeBorder(accent.opacity(0.28), lineWidth: 1)
+                .strokeBorder(
+                    accent.opacity(visualState == .current ? 0.55 : 0.25),
+                    lineWidth: visualState == .current ? 1.5 : 1
+                )
         )
+        .shadow(
+            color: visualState == .current ? accent.opacity(0.25) : .clear,
+            radius: visualState == .current ? 6 : 0,
+            y: 2
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        [lesson.title, lesson.displayTimeRange, lesson.room, lesson.teacherName]
+            .compactMap { $0 }
+            .joined(separator: ", ")
     }
 }
 
@@ -170,8 +289,10 @@ struct LearnTimetableDayLayout {
                 of: first
             ) ?? first
             let endHour = calendar.component(.hour, from: last)
+            let endMinute = calendar.component(.minute, from: last)
+            let paddedEndHour = endMinute > 0 ? endHour + 1 : endHour
             let alignedEnd = calendar.date(
-                bySettingHour: min(18, endHour + 1),
+                bySettingHour: min(18, paddedEndHour + 1),
                 minute: 0,
                 second: 0,
                 of: last
@@ -182,8 +303,8 @@ struct LearnTimetableDayLayout {
             hourMarkers = Self.markers(from: alignedStart, to: alignedEnd, calendar: calendar)
         } else {
             dayStart = calendar.startOfDay(for: Date()).addingTimeInterval(8 * 3600)
-            totalHeight = 600 * minuteHeight
-            hourMarkers = (8 ... 16).map { String(format: "%02d:00", $0) }
+            totalHeight = 540 * minuteHeight
+            hourMarkers = (8 ... 15).map { Self.friendlyHourLabel(hour: $0) }
         }
     }
 
@@ -192,7 +313,7 @@ struct LearnTimetableDayLayout {
         let startMinutes = interval.start.timeIntervalSince(dayStart) / 60
         let durationMinutes = interval.end.timeIntervalSince(interval.start) / 60
         let minY = CGFloat(startMinutes) * minuteHeight
-        let height = max(40, CGFloat(durationMinutes) * minuteHeight - 4)
+        let height = max(36, CGFloat(durationMinutes) * minuteHeight - 3)
         return CGRect(x: 0, y: minY, width: 1, height: height)
     }
 
@@ -204,14 +325,28 @@ struct LearnTimetableDayLayout {
     private static func markers(from start: Date, to end: Date, calendar: Calendar) -> [String] {
         var markers: [String] = []
         var cursor = start
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
         while cursor <= end {
-            markers.append(formatter.string(from: cursor))
+            markers.append(friendlyHourLabel(date: cursor, calendar: calendar))
             guard let next = calendar.date(byAdding: .hour, value: 1, to: cursor) else { break }
             cursor = next
         }
         return markers
+    }
+
+    private static func friendlyHourLabel(hour: Int) -> String {
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = 0
+        let date = Calendar.current.date(from: components) ?? Date()
+        return friendlyHourLabel(date: date, calendar: Calendar.current)
+    }
+
+    private static func friendlyHourLabel(date: Date, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = .current
+        formatter.dateFormat = "h a"
+        return formatter.string(from: date)
     }
 }
 

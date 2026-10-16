@@ -101,6 +101,18 @@ public struct LearnTimetableView: View {
 
     private var dayScheduleBody: some View {
         VStack(spacing: 0) {
+            if viewModel.isSelectedDateToday, let spotlight = viewModel.spotlightLesson(now: now) {
+                LearnTimetableSpotlightCard(
+                    lesson: spotlight,
+                    phase: viewModel.phase(for: spotlight, now: now),
+                    minutesUntil: viewModel.minutesUntilStart(of: spotlight, now: now),
+                    compact: true
+                )
+                .padding(.horizontal, LearnLayout.horizontalPadding)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+            }
+
             LearnDirectionalContent(
                 identity: viewModel.selectedDate,
                 direction: viewModel.dayNavigationDirection
@@ -108,7 +120,14 @@ public struct LearnTimetableView: View {
                 LearnTimetableDayGrid(
                     lessons: viewModel.lessons,
                     showNowIndicator: viewModel.isSelectedDateToday,
-                    referenceDate: now
+                    referenceDate: now,
+                    lessonState: { lesson in
+                        switch viewModel.phase(for: lesson, now: now) {
+                        case .past: return .past
+                        case .current: return .current
+                        case .upcoming: return .upcoming
+                        }
+                    }
                 )
             }
         }
